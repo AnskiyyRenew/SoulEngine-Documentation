@@ -1,0 +1,164 @@
+site_name: SoulEngine Documentation (2.5.3)
+theme:
+  name: material
+  language: zh
+  palette:
+  - media: '(prefers-color-scheme: dark)'
+    scheme: slate
+    primary: deep purple
+    accent: purple
+    toggle:
+      icon: material/weather-night
+      name: Switch to light mode
+  - media: '(prefers-color-scheme: light)'
+    scheme: default
+    primary: deep purple
+    accent: purple
+    toggle:
+      icon: material/weather-sunny
+      name: Switch to dark mode
+  code:
+    highlight_theme: dracula
+  features:
+  - navigation.indexes
+extra_css:
+- css/custom.css
+use_directory_urls: true
+markdown_extensions:
+- admonition
+- toc:
+    permalink: true
+- pymdownx.highlight
+- pymdownx.superfences
+- pymdownx.inlinehilite
+plugins:
+- search
+- i18n:
+    docs_structure: folder
+    fallback_to_default: true
+    languages:
+    - locale: zh
+      name: 中文
+      default: true
+      build: true
+      nav:
+      - 首页: index.md
+      - 入门部分:
+        - 入门指南: 1.入门部分/1.md
+        - 基础知识: 1.入门部分/2.md
+        - 开发过程的注意事项: 1.入门部分/3.md
+      - 基础开发:
+        - 主文件（main.lua）: 2.基础开发/1.md
+        - 配置文件（conf.lua）: 2.基础开发/11.md
+        - 遮罩（Mask）: 2.基础开发/21.md
+        - 缓动动画（Tween）: 2.基础开发/22.md
+        - 节拍器（Beat）: 2.基础开发/23.md
+        - 摄像机（Camera）: 2.基础开发/24.md
+        - 玩家（Player）: 2.基础开发/25.md
+        - 🟡场景（Scene）: 2.基础开发/3.md
+        - 贴图（Sprites）: 2.基础开发/4.md
+        - 🟡文本（Typers）: 2.基础开发/5.md
+        - 输入（Keyboard）: 2.基础开发/6.md
+        - 音频（Audio）: 2.基础开发/7.md
+        - 全局变量（Global）: 2.基础开发/8.md
+        - 碰撞（Collisions）: 2.基础开发/9.md
+        - 超步（SuperStep）: 2.基础开发/90.md
+      - 高阶开发:
+        - 着色器（Shader）: 3.高阶开发/1.md
+        - JSON库（dkjson）: 3.高阶开发/2.md
+        - 安全JSON检测（SafeJson）: 3.高阶开发/3.md
+        - GameJolt API: 3.高阶开发/4.md
+        - 计时器（TimeManager）: 3.高阶开发/5.md
+        - GUI库（GUIManager）: 3.高阶开发/6.md
+        - 窗口管理（Windows）: 3.高阶开发/7.md
+        - 🟡联机开发（sock）: 3.高阶开发/8.md
+      - 战斗场景开发:
+        - 认识战斗场景: 4.战斗场景开发/1.md
+        - 游戏、敌人系统: 4.战斗场景开发/2.md
+        - 回合的开发: 4.战斗场景开发/3.md
+        - 🟡自制攻击效果: 4.战斗场景开发/4.md
+      - Overworld开发:
+        - 认识结构和位置: 5.Overworld开发/1.md
+        - 🔧起步准备: 5.Overworld开发/2.md
+        - 🔧创建并绘制地图: 5.Overworld开发/3.md
+        - 🔧利用地形块迅速绘制地图: 5.Overworld开发/4.md
+        - 🔧在地图中添加对象: 5.Overworld开发/5.md
+        - 🔧导出地图: 5.Overworld开发/6.md
+        - 🟡使用地图: 5.Overworld开发/7.md
+      - 翻译与本地化:
+        - 翻译与本地化: 6.翻译与本地化/1.md
+      - Lua教程速通:
+        - 第一章 变量: Lua教程速通/1.md
+        - 第二章 计算和操作: Lua教程速通/2.md
+        - 第三章 条件和判断: Lua教程速通/3.md
+        - 第四章 循环: Lua教程速通/4.md
+        - 第五章 函数: Lua教程速通/5.md
+        - 第六章 表: Lua教程速通/6.md
+        - 第七章 表中的函数: Lua教程速通/7.md
+      - 打包与发布:
+        - 打包与发布: 打包与发布/1.md
+      - 报错处理:
+        - Lua报错: 报错处理/1.md
+        - 引擎报错: 报错处理/2.md
+    - locale: en
+      name: English
+      build: true
+      nav:
+      - 首页: index.md
+      - Getting Started:
+        - 入门指南: 1.入门部分/1.md
+        - 基础知识: 1.入门部分/2.md
+        - 开发过程的注意事项: 1.入门部分/3.md
+      - Basic Development:
+        - 主文件（main.lua）: 2.基础开发/1.md
+        - 配置文件（conf.lua）: 2.基础开发/11.md
+        - 遮罩（Mask）: 2.基础开发/21.md
+        - 缓动动画（Tween）: 2.基础开发/22.md
+        - 节拍器（Beat）: 2.基础开发/23.md
+        - 摄像机（Camera）: 2.基础开发/24.md
+        - 玩家（Player）: 2.基础开发/25.md
+        - 🟡场景（Scene）: 2.基础开发/3.md
+        - 贴图（Sprites）: 2.基础开发/4.md
+        - 🟡文本（Typers）: 2.基础开发/5.md
+        - 输入（Keyboard）: 2.基础开发/6.md
+        - 音频（Audio）: 2.基础开发/7.md
+        - 全局变量（Global）: 2.基础开发/8.md
+        - 碰撞（Collisions）: 2.基础开发/9.md
+        - 超步（SuperStep）: 2.基础开发/90.md
+      - Advanced Development:
+        - 着色器（Shader）: 3.高阶开发/1.md
+        - JSON库（dkjson）: 3.高阶开发/2.md
+        - 安全JSON检测（SafeJson）: 3.高阶开发/3.md
+        - GameJolt API: 3.高阶开发/4.md
+        - 计时器（TimeManager）: 3.高阶开发/5.md
+        - GUI库（GUIManager）: 3.高阶开发/6.md
+        - 窗口管理（Windows）: 3.高阶开发/7.md
+        - 🟡联机开发（sock）: 3.高阶开发/8.md
+      - Battle Scene Development:
+        - 认识战斗场景: 4.战斗场景开发/1.md
+        - 游戏、敌人系统: 4.战斗场景开发/2.md
+        - 回合的开发: 4.战斗场景开发/3.md
+        - 🟡自制攻击效果: 4.战斗场景开发/4.md
+      - Overworld Development:
+        - 认识结构和位置: 5.Overworld开发/1.md
+        - 🔧起步准备: 5.Overworld开发/2.md
+        - 🔧创建并绘制地图: 5.Overworld开发/3.md
+        - 🔧利用地形块迅速绘制地图: 5.Overworld开发/4.md
+        - 🔧在地图中添加对象: 5.Overworld开发/5.md
+        - 🔧导出地图: 5.Overworld开发/6.md
+        - 🟡使用地图: 5.Overworld开发/7.md
+      - Translation and Localization:
+        - 翻译与本地化: 6.翻译与本地化/1.md
+      - Lua Quick Start:
+        - 第一章 变量: Lua教程速通/1.md
+        - 第二章 计算和操作: Lua教程速通/2.md
+        - 第三章 条件和判断: Lua教程速通/3.md
+        - 第四章 循环: Lua教程速通/4.md
+        - 第五章 函数: Lua教程速通/5.md
+        - 第六章 表: Lua教程速通/6.md
+        - 第七章 表中的函数: Lua教程速通/7.md
+      - Packaging and Release:
+        - 打包与发布: 打包与发布/1.md
+      - Error Handling:
+        - Lua报错: 报错处理/1.md
+        - 引擎报错: 报错处理/2.md
