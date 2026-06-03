@@ -24,14 +24,6 @@ theme:
   - navigation.indexes
 extra_css:
 - css/custom.css
-extra:
-  alternate:
-  - name: 中文
-    link: /SoulEngine-Documentation/
-    lang: zh
-  - name: English
-    link: /SoulEngine-Documentation/en/
-    lang: en
 use_directory_urls: true
 markdown_extensions:
 - admonition
@@ -43,13 +35,15 @@ markdown_extensions:
 plugins:
 - search
 - i18n:
+    reconfigure_material: true
     docs_structure: folder
     fallback_to_default: true
     languages:
     - locale: zh
-      name: 中文
+      name: 涓枃
       default: true
       build: true
+      link: /SoulEngine-Documentation/
       nav:
       - 首页: index.md
       - 入门部分:
@@ -112,6 +106,7 @@ plugins:
     - locale: en
       name: English
       build: true
+      link: /SoulEngine-Documentation/en/
       nav:
       - 首页: index.md
       - Getting Started:
