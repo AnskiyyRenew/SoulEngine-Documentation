@@ -1,4 +1,50 @@
+# ============================================================
+# Only mkdocs build-essential files are tracked by git.
+# Everything else (build output, dev tooling, reports, legacy
+# docs structure, workspace metadata) is hidden below.
+# Tracked essentials: mkdocs.yml, requirements.txt, hooks.py,
+# docs/{en,zh_CN,css,js,background}, .github/, README.md, LICENSE
+# ============================================================
+
+# --- MkDocs build output (online + offline) ---
 site/
-.cache/
+site_offline/
+
+# --- Python caches ---
 __pycache__/
 *.pyc
+
+# --- WorkBuddy workspace metadata ---
+.workbuddy/
+
+# --- Local dev / offline-build helpers (not used by CI) ---
+serve_local.py
+check_offline.py
+post_offline.py
+mkdocs_offline.yml
+
+# --- Doc-style / AI-tone scanners & reports (dev tooling) ---
+scan_ai_slop.py
+scan_casual.py
+ai-tone-report.md
+docs-style-guide.md
+docs-style-report.md
+
+# --- Scratch / stray files ---
+$null
+_list.txt
+
+# --- Legacy docs structure (superseded by numbered folders + docs/zh_CN) ---
+docs/zh/
+docs/en/1.入门部分/
+docs/en/2.基础开发/
+docs/en/3.高阶开发/
+docs/en/4.战斗场景开发/
+docs/en/5.Overworld开发/
+docs/en/6.翻译与本地化/
+docs/en/Lua教程速通/
+docs/en/打包与发布/
+docs/en/报错处理/
+
+# --- Legacy nav-sync script (new structure uses awesome-pages .pages) ---
+scripts/

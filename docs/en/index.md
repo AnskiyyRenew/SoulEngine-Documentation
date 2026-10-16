@@ -1,61 +1,80 @@
-# Home Page
+# Home
+
+Welcome to the SoulEngine documentation site!<br>
+If you have any questions about SoulEngine, the documentation is a good place to start.
+
+This documentation is **dense with information**. If something doesn't click on the first read, read it alongside the examples or ask.
 
 ---
 
-Welcome to the homepage of the **SoulEngine** documentation. Welcome aboard!
+## How to Read This Documentation
 
-This documentation offers two themes—Light Mode and Dark Mode. Simply click the small moon or sun icon in the top menu bar to switch between them seamlessly.
+### How to Use It
+At the very top of the docs is the navigation bar. On the left is the hamburger menu (which appears automatically if the window is too narrow), the title, and the corresponding SoulEngine version number.
+
+On the right there is a moon/sun icon — click it to switch between day and night mode — along with a language button and a search button.
+
+### Icon Meanings
+Some pages are marked with special icons before their title, which mean the following:
+
+- `🔧` means this content requires additional software to use, such as `Tiled`.
+- `❕️` means this content has been updated since the previous version.
+- `🚧` means this topic is still under construction and content is yet to be added.
+
+### Version Number Meaning
+The SoulEngine version number follows the general form: `a.b.c-d`
+
+- `a` is the major version. Currently `3`. When this increments, it means the engine has received a non-backward-compatible major update, usually accompanied by abrupt code-style changes and project structure adjustments. Migrating old projects is not recommended.
+- `b` is the minor version. When this increments, it means the engine has received a significant update, but usually with **backward-compatible changes**, so old projects can be ported.
+- `c` is the patch version. When this increments, it usually represents a fix or a small update.
+- `d` is the release channel. It can be `stable`, `alpha`, or `beta`. For stable development, pick a version tagged with `stable` whenever possible.
+
+### About Migration
+
+!!! tip "Migration Notes"
+    SoulEngine's migration approach is special — it's more like "applying a patch".<br>
+    It does not migrate *old project data into the new version*, but rather **migrates the new version's other contents into your old project**.
+
+    If you have questions, please refer to the relevant section.
 
 ---
 
-## Quick Start
+## Contact
 
----
+QQ: 626073642
 
-### What is SoulEngine?
-
-**SoulEngine** is a framework created by **END / ANSKIYY / CLAVO** (yes, these are all the same person) in collaboration with guest contributor **feat. KunaAster**. It is designed to make creating *UNDERTALE* fan games easier and runs on the **LOVE2D** engine.
-
-Of course, huge thanks to **saman** and all the other testers for their dedication. They discovered countless bugs and contributed endless new ideas that helped this engine grow.
-
----
-
-### About the Emoji Icons Before Pages
-
-- **🟡** If this appears before a page title, it indicates that the documentation for this page has been updated since the previous version. For example, if version `2.5.1` did not have this icon but version `2.5.2` does, it proves that the page was updated in version `2.5.2`.
-- **🔧** If this appears before a page title, it means you will need additional third-party software to utilize this page properly. For instance, if the page involves using the **Tiled** software, it will be marked with the wrench icon.
-
-In short: 🟡 means "updated," and 🔧 means "extra software required."
-
----
-
-### Contact Us
-
-Discord: https://discord.gg/QeCmVMX7Mk<br>
+Discord: [Click here to apply to join the group chat](https://discord.gg/QeCmVMX7Mk) — same as the link below.<br>
 ```markdown
 https://discord.gg/QeCmVMX7Mk
 ```
 
 ---
 
-## Fun Facts & Dev Logs
+## SoulEngine Update Quick Reference
+
+!!! info "Changes"
+    **3.0.0**<br>
+    The first transformative version.
 
 ---
 
-### How long did the first version take to develop?
+## SoulEngine Team
 
-Looking back from the release date of `1.0.0-alpha`, it took about three months. From having zero experience with the LOVE2D engine to releasing the first version, there were so many hurdles along the way.<br>
-The engine I used previously was **Create Your Frisk**, created by **RhenaudTheLukark (Rhenny/RTL)**. It didn't have direct drawing functions like `love.draw()`, nor did it have an independent environment; everything existed in a global scope where every created object was essentially just a texture itself.<br><br>
+**Lead Programmer: Anskiyy**<br>
+*Programmers: Saman, Kuna Aster, AIk*
 
-**Thankfully, I had learned the GAMEMAKER engine before, so I cruised through it.**<br><br>
+**Music: Anskiyy**<br>
 
 ---
 
-### Did you ever feel insecure during development?
+## Featured SoulEngine Games
 
-To answer that: **Yes, but not entirely.**<br><br>
-I often felt irresponsible after finishing features because I could never find bugs myself during testing. I had to rely on others, only for them to discover a mountain of bugs later.<br>
-What can a developer who produces nothing but bugs do? If I ever get a one-off project in the future, won't I be completely stuck?<br><br>
+With every version update, we feature the ten games with the highest popularity and rating.
 
-Of course, I also felt confident because I survived the period with the highest bug count—versions `2.3.8` to `2.3.9`.<br>
-After that version, SoulEngine changed dramatically. That update was massive, fixing a whopping 17 bugs alone, which greatly optimized the user experience.
+!!! warning "Eligibility"
+    Any game made with SoulEngine is eligible to enter!<br>
+    We reject adult, violent, or otherwise inappropriate games from being showcased!
+
+!!! tip "Underswap: Snowstorm"
+    Game link: [https://gamejolt.com/games/Snowingmystorm/1057795](https://gamejolt.com/games/Snowingmystorm/1057795)<br>
+    Authors: Saman & Anskiyy
