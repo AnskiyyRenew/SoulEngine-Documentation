@@ -2,7 +2,9 @@
 title: Modifying Game Information
 ---
 
-At the very beginning, we won't learn how to add new elements to the game; we'll prioritize learning <u>how to make the game your own</u>.
+This page is part of the **common base** — both paths need it.
+
+This page only covers the game's basic information; it does not add new content yet. The full variable reference is in [Basic development → Configuration](../020_basic/000_conf.md) .
 
 ---
 
@@ -152,3 +154,20 @@ Below is an explanation of all **global variables**.
     `SE_MEMORY_SAFETY` is the master switch. If your game truly needs such a large number of images and typewriters, you can turn this variable off.
 
     But if memory leaks become severe enough to crash the machine, you bear the consequences yourself.
+
+---
+
+## How to verify
+
+Restart the game after making changes and check against this table:
+
+| Change | What should happen |
+|---|---|
+| `_INFO.TITLE` | The window title bar shows the text you entered; has no effect on Android |
+| `LOGICAL_WIDTH` / `LOGICAL_HEIGHT` | The window size changes |
+| `SCREEN_SCALE` | The game screen changes size inside the window; it stays centred |
+| `FirstRoom` in `Game/conf_pure.lua` | The game opens directly into that scene instead of the logo scene |
+
+!!! warning "Two reasons a change has no effect"
+    - The change was written into the root `conf_pure.lua` while `Game/conf_pure.lua` also sets the same variable. The Game copy runs later and overwrites the engine default.
+    - `Game/conf_pure.lua` has a syntax error. The engine then rolls back entirely to the defaults, prints `[Conf] WARNING` , and every change in that file is dropped.

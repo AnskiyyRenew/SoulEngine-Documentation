@@ -2,7 +2,9 @@
 title: 新建与跳转场景
 ---
 
-场景可视为一个独立的运行单元，其中的全部行为由场景自身定义。
+本页属于**通用底座**的一部分，两条路线都要用到。
+
+场景可视为一个独立的运行单元，其中的全部行为由场景自身定义。完整的场景说明见 [基础开发 → 场景](../020_basic/010_scene.md) 。
 
 ---
 
@@ -71,3 +73,17 @@ Sprites.CreateSprite("poseur.png")
 ```
 
 上面的代码会在屏幕正中央创建一个 `Poseur` 图片。
+
+---
+
+## 验证点
+
+| 做法 | 应该看到的变化 |
+|---|---|
+| 场景第一层区域写 `print("这是我的新场景")` | 控制台输出该字符串 |
+| 场景第一层区域写 `Sprites.CreateSprite("poseur.png")` | 屏幕正中央出现 Poseur 图片 |
+| `Game/conf_pure.lua` 的 `FirstRoom` 改为该场景名 | 启动后直接进入该场景 |
+
+!!! warning "改了 `FirstRoom` 仍然进入旧场景"
+    场景名用点号表示子目录： `Battle.myfirst` 对应 `Scripts/Scenes/Battle/myfirst.lua` 或 `Game/Scenes/Battle/myfirst.lua` 。<br>
+    两个根按 `Game.Scenes.` 优先、 `Scripts.Scenes.` 兜底的顺序查找，两处都找不到时终端会打印 `[Scenes]` 开头的提示。

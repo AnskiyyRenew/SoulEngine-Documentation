@@ -2,8 +2,9 @@
 title: Creating Sprites
 ---
 
-All visible parts of a game are "rendered" with `color`.<br>
-And the rendered color, in a 2D game like the current one, is carried by `sprites`.
+This page is part of the **common base** — both paths need it.
+
+All visible parts of a game are rendered as `color` , and in a 2D game that color is carried by `sprites`. The full property list is in [Basic development → Sprites](../020_basic/020_sprites.md) .
 
 ---
 
@@ -77,3 +78,19 @@ Modifying the image's properties separately after creation:
     - `alpha` the image's transparency (0 ~ 1); the larger the number, the more clearly visible.
     - `pixel_snap` whether this image does pixel snapping (defaults to following the global `sprites.pixel_snap`, i.e. on). Set to `false` to exempt just this image—commonly used for parts in an assembly that shouldn't be individually rounded.
     - `velocity` the image's velocity
+
+---
+
+## How to verify
+
+Put this in the first-level region of a scene. After entering the scene, a `poseur` image at double size should appear centre screen:
+
+```lua
+image = Sprites.CreateSprite("poseur.png", 0)
+image.xscale = 2
+image.yscale = 2
+```
+
+!!! warning "The image does not appear"
+    The path is looked up in `Game/Resources/Sprites/` and `Resources/Sprites/` , and subdirectories must be written out in full, e.g. `Overworld/Frisk/spr_frisk_0.png` .<br>
+    File names are case-sensitive. A case mismatch that still matches on Windows will fail to find the image once packaged for Android or Linux.

@@ -2,8 +2,10 @@
 title: 贴图的创建
 ---
 
+本页属于**通用底座**的一部分，两条路线都要用到。
+
 游戏中所有可见的部分都是渲染出的 `颜色` 。<br>
-在 2D 游戏中，渲染的颜色由 `贴图` 承载。
+在 2D 游戏中，渲染的颜色由 `贴图` 承载。全部属性见 [基础开发 → 贴图](../020_basic/020_sprites.md) 。
 
 ---
 
@@ -75,3 +77,19 @@ Sprites.CreateSprite("poseur.png", 0, 320, 240, 0, 1, 0, 0, nil, {1, 1, 1}, 1, 2
     - `alpha` 图片的透明度（0 ~ 1），数字越大，越清晰可见。
     - `pixel_snap` 是否让这张图做像素吸附（默认跟随全局 `sprites.pixel_snap` ，也就是开着）。设成 `false` 就单独放过这一张，常用于拼装体里不该被单独取整的零件。
     - `velocity` 图片的速度
+
+---
+
+## 验证点
+
+在场景的第一层区域写下这段，进入场景后屏幕正中央应出现放大一倍的 `poseur` 图片：
+
+```lua
+image = Sprites.CreateSprite("poseur.png", 0)
+image.xscale = 2
+image.yscale = 2
+```
+
+!!! warning "图片没有出现"
+    路径从 `Game/Resources/Sprites/` 与 `Resources/Sprites/` 两处查找，子目录要写全，例如 `Overworld/Frisk/spr_frisk_0.png` 。<br>
+    文件名区分大小写。Windows 上大小写写错仍能匹配，打包到 Android 或 Linux 后该图会找不到。

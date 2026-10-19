@@ -2,8 +2,9 @@
 title: Creating and Switching Scenes
 ---
 
-A scene can be imagined as you creating a new `world`.<br>
-All operations within this world are defined by you.
+This page is part of the **common base** — both paths need it.
+
+A scene is a self-contained unit of execution; everything that happens inside it is defined by the scene itself. The full scene reference is in [Basic development → Scenes](../020_basic/010_scene.md) .
 
 ---
 
@@ -73,3 +74,17 @@ Sprites.CreateSprite("poseur.png")
 ```
 
 The code above creates a `Poseur` image at the center of the screen.
+
+---
+
+## How to verify
+
+| What you did | What should happen |
+|---|---|
+| Wrote `print("This is my new scene")` in the first-level region | The console prints that string |
+| Wrote `Sprites.CreateSprite("poseur.png")` in the first-level region | A Poseur image appears centre screen |
+| Set `FirstRoom` in `Game/conf_pure.lua` to the scene name | The game opens directly into that scene |
+
+!!! warning "Still landing in the old scene after changing `FirstRoom`"
+    A scene name uses dots for subdirectories: `Battle.myfirst` maps to `Scripts/Scenes/Battle/myfirst.lua` or `Game/Scenes/Battle/myfirst.lua` .<br>
+    The two roots are searched as `Game.Scenes.` first and `Scripts.Scenes.` second; when neither has the file, the terminal prints a message starting with `[Scenes]` .

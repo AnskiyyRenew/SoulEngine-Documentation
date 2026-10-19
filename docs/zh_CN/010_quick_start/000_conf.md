@@ -2,7 +2,9 @@
 title: 修改游戏信息
 ---
 
-本页先完成游戏基础信息的配置，暂不涉及新增内容。
+本页属于**通用底座**的一部分，两条路线都要用到。
+
+本页只完成游戏基础信息的配置，暂不涉及新增内容。全部变量的完整说明见 [基础开发 → 配置](../020_basic/000_conf.md) 。
 
 ---
 
@@ -152,3 +154,20 @@ Guard = ImportFile("Engine.MemorySafety")
     `SE_MEMORY_SAFETY` 是主开关，若游戏确实需要如此大量的图片和打字机，可以关闭本变量
 
     但由此导致的内存泄漏问题需自行承担。
+
+---
+
+## 验证点
+
+改动完成后重新启动游戏，按下表核对：
+
+| 改动 | 应该看到的变化 |
+|---|---|
+| `_INFO.TITLE` | 窗口标题栏变为填入的文字，Android 端不生效 |
+| `LOGICAL_WIDTH` / `LOGICAL_HEIGHT` | 窗口尺寸改变 |
+| `SCREEN_SCALE` | 画面在窗口中的大小改变，画面始终居中 |
+| `Game/conf_pure.lua` 里的 `FirstRoom` | 启动后直接进入该场景，不再经过 logo 场景 |
+
+!!! warning "改了没有生效的两个原因"
+    - 改动写在根目录 `conf_pure.lua` ，而 `Game/conf_pure.lua` 里也有同名变量。Game 区那份后执行，会覆盖引擎默认值。
+    - `Game/conf_pure.lua` 存在语法错误。此时引擎整体回滚到默认值并打印 `[Conf] WARNING` ，该文件内的全部改动都不生效。
