@@ -16,6 +16,8 @@ title: ❕️ 打字机
 
 第四种 `InstText` 不带打字动画，用法和它们差别较大，单独放在本节最后。
 
+此外 `Typers.CCAdd` 基于 `InstText` 提供带动画的浮动文字，同样放在本节最后。
+
 ---
 
 ### EText 打字机
@@ -57,11 +59,12 @@ title: ❕️ 打字机
     - `[font:x]` 将字体设置为 `x` 。路径从 `Resources/Fonts/` 开始算，但**会先查 `Game/Resources/Fonts/`** ，同名文件 Game 区优先。设置字体会关闭 bondfont，恢复需重新启用。
     - `[effect:name, int]` 设置字符的特效。
         - `name` 特效的名字： `shake` 原地颤动、 `rotate` 进行轻微旋转，其他名字等于没有特效。
-        - `int` 特效强度，默认 `1` ，数字越大强度越大。
+        - `int` 特效强度，数字越大强度越大。**逗号与数值都必须写出**： `[effect:shake, 1]` 。只写 `[effect:shake]` 时整个标签不生效（解析依赖逗号分隔符）。数值无法转为数字时按 `1` 处理。
     - `[outline:r, g, b, a, t]` 设置文本的外边框。
-        - `r, g, b, a` 边框的颜色与透明度。
-        - `t` 边框的厚度。
-    - `[voice:name]` 设置打字音效，文件在 `Resources/Sounds/Voices/` 里，写文件名即可。
+        - `r, g, b, a` 边框的颜色与透明度，取值 `0 ~ 1` ，直接交给 `setColor` 。
+        - `t` 边框的厚度，单位是像素。
+        - 五段都只认**整数**，写 `0.5` 这类小数会让整个标签静默失效。
+    - `[voice:name]` 设置打字音效，文件在 `Resources/Sounds/Voices/` 里，写文件名即可。默认音效是 `v_monster.wav` ，设置后音效列表被替换成这一个。
     - `[portrait:frames|interval|mode]` 设置打字时同时播放的动画，一般为说话时有一个角色播放说话动画。
         - `frames` 帧图片，**用英文逗号分隔**，例如 `a.png, b.png` 。
         - `interval` 每帧多少秒，默认 `1/30` 。
@@ -72,14 +75,14 @@ title: ❕️ 打字机
     - `[noskip]` 禁止这一句被取消键快进，和 `[skip]` 正好相反。
     - `[next]` 这句打完立刻翻到下一句，不用等玩家按确认键， `manual` 模式下同样生效。
         - 气泡属于显示它的那一句，因此 `[next]` 会把气泡和文本一起清掉；下一句需要气泡时需重新使用 `[showbubble:]` 。
-    - `[showbubble:dir, pos]` 显示气泡对话框。 `dir` 是尾巴朝向，可取 `left` / `right` / `up` / `down` （默认 `left` ）； `pos` 是尾巴沿着边框的位置 `0 ~ 1` ，默认 `0.5` 。
+    - `[showbubble:dir, pos]` 显示气泡对话框。 `dir` 是尾巴朝向，可取 `left` / `right` / `up` / `down` （默认 `left` ）； `pos` 是尾巴沿着边框的位置 `0 ~ 1` ，默认 `0.5` 。**逗号与 `pos` 都要写出**，只写 `[showbubble:left]` 不会生效。
     - `[hidebubble]` 隐藏气泡对话框。
     - `[func:name]` 调用名为 `name` 的函数。**查表顺序**：先查本打字机的 `funcs` 注册表（用 `typer:SetFunc` 注册过），未命中再回退到 `_G[name]` 全局。local / 闭包 / upvalue 函数只要通过 `:SetFunc` 注册过，也能从文本中调用，无需挂到全局命名空间。
     - `[func:name|a, b, c]` 调用名为 `name` 的函数，并可以进行传参操作，使用英文逗号进行分割。查表顺序同上。
         - 数字字符串会自动 `tonumber` 转成数字；其他参数按字符串原样传入。
         - 函数执行报错会被 `pcall` 包住，只打印 `[EText] func callback error: ...` 不会中断打字。
         - 找不到时打印 `[EText] function not found in typer.funcs or _G: <name>` 并跳过。
-    - `^` 可以使用此符号直接将所有样式重置到默认值。
+    - `^` 把颜色、透明度、边框、缩放、特效这五项重置为默认值，**并额外停顿 `0.3` 秒**（与 `[wait:]` 一样走独立计时器，快进时跳过）。字体与字号**不在**重置范围内，需要改回默认值时再写一次 `[font:]` / `[size:]` 。
 
 !!! example "实例方法"
     - `typer:SetFunc(name, fn)` 注册函数 `fn` 到本打字机的 `funcs` 表里，使 `[func:name]` 可调用 local / 闭包 / upvalue 函数。
@@ -91,6 +94,23 @@ title: ❕️ 打字机
 
 !!! tip "多个标签可连续排列"
     例如 `[font:x][colorHEX:ffff00][effect:shake, 2]` ，效果依次叠加。
+
+!!! example "文本中的特殊字符"
+
+    除方括号标签外，文本里还有几个被引擎直接处理的字符：
+
+    - `\n` 换行，光标回到行首并下移一行。
+    - `\t` 制表符，宽度等于四个空格。
+    - `* ` 句首的星号加空格被当作对白前缀。引擎会把 `*X` 补全成 `* X` ，且折行后的每一行带**两个空格的悬挂缩进**。面板类文字不要以 `* ` 开头，缩进会把字挤出面板，见 [商店](../040_overworld/060_shop.md) 。
+
+!!! example "自动换行"
+
+    `EText` 的 `typer.auto_wrap` 默认**关闭**，打开后按 `size[1]` 折行，规则与 `InstText` 一致：英文按单词折、中文等宽字符逐字折。
+
+    ```lua
+    local t = Typers.EText.New({"很长很长、肯定放不下的一句话"}, {60, 270}, 0, {300, 0})
+    t.auto_wrap = true
+    ```
 
 ---
 
@@ -230,6 +250,7 @@ title: ❕️ 打字机
     - `SetColor(r, g, b)` 改颜色， `0 ~ 1` 或 `0 ~ 255` 均可。
     - `UseBondFont(config)` 换一套中英字体配置，结构同 `EText` 的 bondfont。
     - `Destroy()` / `Remove()` 销毁。会把字符从缓存里减一次引用，**可以重复调用**。
+    - `GetWidth()` / `GetHeight()` 最宽一行的宽度，以及所有行的总高度，见文末「测量文本尺寸」小节。
     - `t.font` / `t.fontsize` 这两个属性可直接赋值，赋值后会自动重排，无需调用 `Rebuild()` 。
 
 !!! warning "颜色预渲染在字符中：先改色，再改字"
@@ -257,5 +278,130 @@ title: ❕️ 打字机
     `Layers.clear()` / `Typers.ClearAll()` 会把它一起清掉，主动调用 `Destroy()` 可确保实例被释放。
     反复创建而不销毁时，缓存中的字符贴图数量会持续增长。
     `Typers.InstText.ClearCache()` 会清空全部字符缓存，正在绘制的实例也会被一并释放。
+
+---
+
+### CCAdd 浮动文字
+
+`Typers.CCAdd` 用 `InstText` 封装出一类**带动画的浮动文字**：文本创建后由动画函数控制显隐与位移，播完自行消失。适用于伤害数字、拾取提示这类不需要逐字出现的文字。
+
+使用 `Typers.CCAdd(text, x, y, layer, align, anim_func)` 创建。
+
+- `text` 要显示的文本，直接传给 `InstText.New` 。传表只取第 `1` 项，换行需自行写 `\n` 。
+- `x` / `y` 文本**左上角**的横坐标与纵坐标，两个数字分开传，不是表。
+- `layer` 图层，缺省 `0` 。
+- `align` 对齐方式，缺省 `"center"` ，取值与 `InstText:SetAlign` 相同。
+- `anim_func` 动画函数，每帧以 `func(self)` 的形式调用。不传则使用默认动画。
+
+返回值即 CC 对象本身，字段可直接读写：
+
+!!! example "CC 对象字段"
+    - `cc.inst` 内部的 `InstText` 实例， `alpha` / `x` / `y` / `fontsize` 等属性可直接赋值。
+    - `cc.time` 帧计数，初始为 `0` 。默认动画每帧自增，自定义动画需自行累加。
+    - `cc.func` 动画函数本体。
+
+!!! example "创建示例"
+
+    ```lua
+    local cc = Typers.CCAdd("+20", 320, 240, 0, "center")
+    ```
+
+!!! warning "创建时 alpha 为 0"
+    `CCAdd` 在创建后把 `cc.inst.alpha` 置为 `0` ，文本要等动画把 `alpha` 抬上去才可见。
+
+**默认动画：**
+
+不传 `anim_func` 时，引擎在第一帧（ `cc.time == 1` ）创建 4 个补间：
+
+- `alpha` `0` → `1` ，40 帧，淡入。
+- `alpha` `1` → `0` ，延迟 70 帧后再用 40 帧淡出。
+- `y` 原位 → `y - 30` ，50 帧， `Quad Out` ，先上浮 30 像素。
+- `y - 30` → `y - 60` ，延迟 70 帧后再用 50 帧， `Quad In` ，继续上浮 30 像素。
+
+补间的时长与延迟单位均为帧，与 `Tween.CreateTween` 一致。
+
+**自定义动画：**
+
+`anim_func` 以冒号方式调用， `self` 就是 CC 对象自身：
+
+!!! example "自定义动画"
+
+    ```lua
+    local cc = Typers.CCAdd("MISS", 320, 200, 0, "center", function (self)
+        self.time = self.time + 1
+        self.inst.alpha = math.max(0, 1 - self.time / 60)
+        self.inst.y = self.inst.y - 1
+    end)
+    ```
+
+!!! warning "自定义动画需自行处理 alpha 与结束时机"
+    创建时 `cc.inst.alpha` 为 `0` ，自定义动画不改写 `alpha` 时文本一直不可见。
+    默认动画的淡出由补间完成，自定义动画没有这一层，需自行判定并结束。
+
+!!! note "默认动画结束后自动释放"
+    默认动画在 `cc.time` 达到 `125` 帧时销毁 `cc.inst` 并把该 CC 移出 `Typers._cc` ，无需额外处理。
+    `125` 由最后一个补间推得：延迟 `70` 帧 + 时长 `50` 帧，补间在第 `123` 帧写入终值，其余为余量。
+
+!!! warning "自定义动画不会自动释放"
+    自定义 `anim_func` 没有结束判定，CC 会一直留在 `Typers._cc` 中， `anim_func` 每帧继续调用。
+    动画结束时调用 `Typers.CCRemove(cc)` 销毁实例并移出列表：
+
+    ```lua
+    Typers.CCRemove(cc)
+    ```
+
+    该函数可重复调用，也可以在 `anim_func` 内部对自身使用。
+
+!!! note "切换场景时统一清理"
+    `Typers.ClearAll()` 会遍历 `Typers._cc` ，销毁每个 `cc.inst` 并清空列表； `Layers.clear()` 内部会调用它。
+
+!!! note "更新时机"
+    `Typers.Update` 由 `main.lua` 在 `love.update` 中调用，位置在 `scene.update` **之前**；它按倒序遍历 `Typers._cc` 并逐个调用 `func` 。
+
+---
+
+## 测量文本尺寸
+
+四种打字机都能报告当前所持文本的尺寸，方法一致。尺寸不含 `typer.x` / `typer.y` ，描述的是字符本身，与它在屏幕上的位置无关。
+
+!!! example "测量方法"
+    - `typer:GetWidth()` **最宽一行**的像素宽度。 `\n` 与自动换行会开启新行，各行分别测量，取其中最大值。
+    - `typer:GetHeight()` 从最靠上的字形顶点到最靠下的字形底边的像素高度。包含行间空隙与各字形自身的 `scale` 。
+    - `typer:GetLettersSize()` 一次取两个值，以两个数字返回（宽、高），不返回表。
+
+持有某个打字机、却不知道它由哪个模块创建时，可以调用模块级入口，它对四种模块的实例都适用：
+
+- `Typers.GetLettersSize(typer)` 返回值相同；传入 `nil` 或没有测量方法的对象时返回 `0, 0` 。
+
+!!! example "把第二段文字接到第一段之后"
+
+    ```lua
+    local gold = Typers.InstText.New("GOLD 120", {465, 420}, 1)
+    local w, h = gold:GetLettersSize()
+
+    -- 从第一段文字末尾再往右 10 像素开始，不必估算宽度。
+    local lv = Typers.InstText.New("LV 3", {465 + w + 10, 420}, 1)
+    ```
+
+!!! example "按已打出句子的高度分支"
+
+    ```lua
+    local t = Typers.EText.New({"一行短句", "很长很长、会折行的一句话"}, {60, 270}, 0, {300, 0})
+
+    --- 句子打完之后调用。
+    local function fits_one_row(typer)
+        local _, h = Typers.GetLettersSize(typer)
+        return h <= 27
+    end
+    ```
+
+!!! note "`InstText` 立即可用，另外三种随时间增长"
+    `InstText` 在创建时就排完整段文字，因此 `New()` 、 `SetText()` 或 `Rebuild()` 之后数值即定值。
+    `EText` / `NText` / `SText` 只保存已打出的字符，数值会一直增长到整句结束；尚未开始的句子不参与计算。
+
+!!! warning "只统计字符"
+    空格不产生字符，因此不计入结果； `[wait:x]` 之类的标签本就不参与排版。
+    `shake` 等效果在绘制时才偏移字形，不计入，屏幕上的实际占用可能比返回值大几像素。
+    对齐也不改变尺寸： `SetAlign("center")` 只平移字符，不会让它变宽。
 
 ---

@@ -55,6 +55,9 @@ title: 显示文字
 !!! note "无需每帧更新"
     `InstText` 注册进图层后由 `Layers` 直接绘制，不在 `love.update` 中每帧处理；修改内容后会自动重绘。
 
+!!! note "读取文本尺寸"
+    每种打字机都能通过 `typer:GetWidth()` 、 `typer:GetHeight()` 、 `typer:GetLettersSize()` 报告所持文本的宽高，详见[基础开发 → 打字机](../020_basic/030_typers.md)。
+
 ---
 
 ---

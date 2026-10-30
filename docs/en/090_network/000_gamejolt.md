@@ -41,7 +41,7 @@ Global.SetVariable("GamejoltPK", "abcdef0123456789abcdef0123456789")
 Gamejolt.init(Global.GetVariable("GamejoltID"), Global.GetVariable("GamejoltPK"))
 ```
 
-`init` only does three things: converts `app_id` to a number, stores `private_key`, and builds `base_url`.
+`init` does four things: converts `app_id` to a number, stores `private_key`, builds `base_url`, and clears any login state left over from a previous game.
 
 ??? quote "Source of `init`"
     ```lua
@@ -49,13 +49,16 @@ Gamejolt.init(Global.GetVariable("GamejoltID"), Global.GetVariable("GamejoltPK")
         gamejolt.app_id = tonumber(app_id)
         gamejolt.private_key = private_key
         gamejolt.base_url = "https://api.gamejolt.com/api/game/v1_2"
+        -- Pointing at another game must not keep the previous player logged in.
+        gamejolt.logout()
         return (gamejolt.app_id ~= nil and gamejolt.private_key ~= nil)
     end
     ```
 
-!!! warning "You must init first"
-    `base_url` is only assigned inside `init()`. If you call `fetchUser()` and other methods without initializing,
-    URL building will throw an error because it concatenates `nil` — and it happens **when that line runs**, not at load time.
+!!! note "Without init the library returns false instead of concatenating nil"
+    `base_url` is only assigned inside `init()`. Calling any endpoint before that hits a
+    `requireConfig()` guard that returns `false, "GameJolt: call gamejolt.init(app_id, private_key) first"` —
+    it does not throw. Switching to another `app_id` clears the stored `username` / `user_token`, so the two games cannot mix credentials.
 
 ### 3. Check whether it can be used
 
@@ -78,6 +81,8 @@ md5.sumhexa(base_url .. request_path .. private_key)
 
 Here `request_path` is the **full path + parameters excluding the signature itself**. Each method in the library assembles it itself, so you don't need to worry about it.
 
+Query parameter values are percent-encoded first, and the signature is computed over the encoded string, so the two always agree.
+
 ??? quote "`generateSignature` and `apiRequest`"
     ```lua
     local function generateSignature(request_path)
@@ -85,41 +90,56 @@ Here `request_path` is the **full path + parameters excluding the signature itse
         return md5.sumhexa(input)
     end
 
-    local function apiRequest(url)
+    -- On failure returns false, message, kind, where kind is "transport" (unreachable, bad
+    -- HTTP status, unparseable body) or "api" (the server explicitly refused).
+    local function apiRequest(path)
         if (not https or type(https.request) ~= "function") then
             local platform = (SE and SE.system and SE.system.getOS and SE.system.getOS()) or "Unknown"
             local reason = https_error or "missing native https module"
-            return false, "GameJolt API unavailable on "..tostring(platform)..": "..reason
+            return false, "GameJolt API unavailable on "..tostring(platform)..": "..reason, "transport"
         end
 
-        -- lua-https (https.dll) API: returns code, body, headers
-        local code, response, headers = https.request(url)
+        local url = gamejolt.base_url .. path .. "&signature=" .. generateSignature(path)
 
-        if (code ~= 200) then
-            return false, "HTTP error: "..tostring(code)
+        -- lua-https (https.dll) API: returns code, body, headers. DNS and TLS failures raise
+        -- instead of returning a code in some builds, hence the pcall.
+        local raised, code, body = pcall(https.request, url)
+        if (not raised) then return false, "HTTPS request failed: "..tostring(code), "transport" end
+        if (not code) then return false, "HTTPS request failed: "..tostring(body), "transport" end
+        if (code ~= 200) then return false, "HTTP error: "..tostring(code), "transport" end
+
+        local data, pos, err = json.decode(body)
+        if (type(data) ~= "table") then
+            return false, "JSON decode error: "..tostring(err).."\nResponse: "..tostring(body), "transport"
         end
 
-        local data, pos, err = json.decode(response)
-        if (not data) then
-            return false, "JSON decode error: "..tostring(err).."\nResponse: "..tostring(response)
+        -- A body that parses but carries no response envelope is not a valid success.
+        local payload = data.response
+        if (type(payload) ~= "table") then
+            return false, "Malformed response: missing response envelope", "transport"
         end
 
-        if (data.response and data.response.success == "false") then
-            return false, data.response.message or "API error"
+        -- GameJolt reports success as the string "true"/"false", but tolerate a bare boolean
+        -- so neither shape slips past the check.
+        if (payload.success == false or payload.success == "false") then
+            return false, payload.message or "API error", "api"
         end
 
-        return data.response
+        return payload
     end
     ```
+
+`apiRequest` takes the **path without `signature`**; both the URL and the signature are assembled internally, so callers never build either.
 
 ### Unified return-value convention
 
 | Situation | Returns |
 |---|---|
 | Success | `data.response` (a table), **no second return value** |
-| Failure | `false, error message string` |
+| Transport failure (no https module, network error, non-200 status, unparseable body) | `false, error message, "transport"` |
+| Server refusal (business-level failure) | `false, error message, "api"`, where the message is the `message` returned by the endpoint |
 
-So when calling, either check `false` first, or wrap it yourself like some methods do:
+The third return value `kind` separates "could not reach the server" from "reached it and got refused". The library uses it to decide whether the heartbeat should continue; callers can ignore it.
 
 ```lua
 local res, err = Gamejolt.fetchUser(nil, "somebody")
@@ -130,10 +150,9 @@ else
 end
 ```
 
-!!! bug "On success the second return value is also nil — don't treat it as an error code"
-    For example, `fetchUser` returns only `data.response` on success, and the second return value is `nil`.
-    Writing `local res, err = ...; if err then ...` is safe, but `if (not res) then` can also misfire when
-    some interface returns an empty table — using `res == false` uniformly is the safest.
+!!! note "Failures always start with `false`"
+    Success returns nothing but a table; failure always begins with `false`.
+    `if (not res) then` also works, but `res == false` matches the convention better: when `res` is a table, the call succeeded.
 
 ---
 
@@ -142,41 +161,46 @@ end
 ### General
 
 !!! example "General"
-    - `init(app_id, private_key)` sets `app_id` / `private_key` / `base_url` and returns whether both are non-empty.
+    - `init(app_id, private_key)` sets `app_id` / `private_key` / `base_url`, returns whether both are non-empty, and clears any previous login state.
     - `isAvailable()` whether the native `https` module is ready. On failure the second return value is an explanation with the platform name.
-    - `isLoggedIn()` whether `user_token` and `username` are both set (**does not validate correctness**, see warning below).
+    - `isLoggedIn()` whether a pair of credentials is stored **and was accepted by the server**; see below.
+    - `logout()` drops the local `username` / `user_token` and stops the heartbeat. Local only, sends no request.
 
 ### Users
 
 !!! example "Users"
     - `fetchUser(user_id, username)` looks up user info; pass either of the two parameters, **login not required**.
-    - `authUser(username, user_token)` validates the username + token. On success, `gamejolt.username` / `gamejolt.user_token` are kept for later interfaces.
+    - `authUser(username, user_token)` validates the username + token. The credentials are stored for later interfaces only after the server accepts them.
+    - `logout()` discards the local credentials and returns to the logged-out state.
 
-!!! bug "`isLoggedIn()` is still true after `authUser` fails"
-    The source code **stores the username/token first, then sends the request**:
-
-    ```lua
-    function gamejolt.authUser(username, user_token)
-        gamejolt.username = username       -- stored first
-        gamejolt.user_token = user_token
-        ...
-        local success, err = apiRequest(url)
-        return success ~= false, err
-    end
-    ```
-
-    On network failure / wrong token it returns `false, err`, but the two fields **have already been written**,
-    so `isLoggedIn()` still returns `true`, and all subsequent interfaces that need login will request with the wrong token.
-
-    Wrap it yourself:
+!!! note "`authUser` validates first, stores afterwards"
+    The previous implementation stored the username/token before sending the request and never rolled them back,
+    so `isLoggedIn()` stayed `true` after `authUser` returned `false`, and every later call went out with an invalid token.
+    It now **commits only after validation passes**:
 
     ```lua
-    local ok, err = Gamejolt.authUser(name, token)
-    if (not ok) then
-        Gamejolt.username = nil
-        Gamejolt.user_token = nil
+    local path = "/users/auth/?game_id=" .. gamejolt.app_id ..
+                 "&username=" .. urlencode(clean_user) ..
+                 "&user_token=" .. urlencode(clean_token)
+
+    local result, message = apiRequest(path)
+    if (result == nil or result == false) then
+        gamejolt.logout()
+        return false, message
     end
+
+    gamejolt.username = clean_user
+    gamejolt.user_token = clean_token
+    gamejolt._verified = true
+    return true
     ```
+
+    This gives a few guaranteed behaviors:
+
+    - `isLoggedIn()` returning `true` means the credentials **passed `/users/auth/` at least once**
+    - a failed `authUser` restores the library to the logged-out state; callers do **not** need to nil out the fields
+    - username and token are trimmed of surrounding whitespace first; blank or non-string input returns `false` directly
+    - if a re-login fails, the previous login is dropped rather than leaving half-updated credentials behind
 
 ### Trophies (achievements)
 
@@ -227,6 +251,15 @@ The auto state is stored in `Gamejolt._session_auto`; you can read it:
 !!! warning "`interval` is seconds, not milliseconds"
     `state.elapsed = state.elapsed + dt`, and `dt` is in seconds. Writing `30000` would give a heartbeat every 30000 seconds.
 
+!!! note "A heartbeat refused by the server stops the heartbeat and logs the player out"
+    The reason for each failed ping is reported by the third return value, `kind`:
+
+    - `"transport"` unreachable, non-200 status, and so on — only `last_error` is recorded, and the next tick retries
+    - `"api"` the server explicitly refused (invalid credentials, expired session) — `_session_auto.enabled` is set to `false` and `_verified` to `false`
+
+    In the second case `isLoggedIn()` turns `false`, which keeps the game from retrying invalid credentials for the rest of the run.
+    Calling `sessionUpdate()` again after a successful `authUser` restores it.
+
 ### Data storage (cloud save / global data)
 
 A simple key-value store.
@@ -249,29 +282,29 @@ if (res ~= false and res.data) then mySave = json.decode(res.data) end
 Gamejolt.dataStore("motd", "Server maintenance today")
 ```
 
-!!! danger "`key` and `data` are not URL-encoded at all"
-    The source code concatenates raw strings:
+!!! note "`key` and `data` are percent-encoded"
+    Every query parameter value goes through `urlencode`, and the signature is computed afterwards:
 
     ```lua
-    local url = gamejolt.base_url .. "/data-store/set/?game_id=" .. gamejolt.app_id ..
-                "&key=" .. key .. "&data=" .. data .. ...
+    local path = "/data-store/set/?game_id=" .. gamejolt.app_id ..
+                 "&key=" .. urlencode(key) .. "&data=" .. urlencode(data) .. credentials
     ```
 
-    If `key` or `data` contains `&`, `=`, `#`, spaces, or Chinese characters, the URL will be truncated / misparsed,
-    and since **the signature is computed from the assembled string**, the server won't match it and returns a signature error directly.
+    Spaces, Chinese characters, `&`, `=`, and `#` inside `key` / `data` therefore cannot truncate the URL or break the signature.
+    Encoding structured data with `json.encode` before storing it is still recommended, so it parses cleanly when read back.
 
-    Workarounds:
-
-    - use only `[A-Za-z0-9_-]` for the key
-    - `json.encode` the data first, then apply your **own** percent-encoding (or base64) before sending
-    - in short, don't put player-entered text in directly
+!!! note "A `user_data` call checks the login first"
+    The previous implementation concatenated `nil` credentials and threw when nobody was logged in. With `user_data` set to `true`
+    and no active login, it now returns `false, "GameJolt: not authenticated, call gamejolt.authUser(username, user_token) first"`.
 
 ### Score tables
 
 !!! example "Score tables"
     - `fetchScoresLocal(table_id)` pulls the top N entries, **no login required**. If `table_id` is omitted, it takes the game's main table.
     - `fetchScoresGlobal(table_id)` requests with `username + user_token`; the result includes the player's own rank / neighbors, **login required**.
-    - `submitScore(score, table_id, sort, extra_data)` submits a score. `sort` is the value used for display; `extra_data` is extra text (e.g. time used, level).
+    - `submitScore(score, table_id, sort, extra_data, as_guest)` submits a score. `sort` is the value used for display; `extra_data` is extra text (e.g. time used, level).
+      - while logged in, the credentials are appended automatically and the score is filed under the player's account
+      - with nobody logged in the score goes in as a guest; pass `true` for the fifth argument, `as_guest`, to force a guest submission even while authenticated
 
 ```lua
 Gamejolt.submitScore(12345, 535, 12345, "LV19|Genocide")
@@ -281,11 +314,25 @@ if (res ~= false and res.scores) then
 end
 ```
 
-!!! bug "`submitScore` does not carry username/token — it submits a guest score"
-    When assembling the URL, `username` / `user_token` are **not** appended (compare `fetchScoresGlobal`, which does attach them),
-    so even if you have called `authUser`, the score is submitted as a **guest** and won't be attached to the player's account.
+!!! note "Credentials go after every optional parameter"
+    `submitScore` assembles `table_id` / `sort` / `extra_data` first and appends the credentials last, so the two never interfere:
 
-    To submit an authenticated score, write your own credentialed version following the library's approach, or modify this library.
+    ```lua
+    local credentials = ""
+    if (not as_guest and gamejolt.isLoggedIn()) then
+        credentials = userParams()
+    end
+
+    local path = "/scores/add/?game_id=" .. gamejolt.app_id ..
+                 "&score=" .. urlencode(score) ..
+                 (table_id and "&table_id=" .. urlencode(table_id) or "") ..
+                 (sort and "&sort=" .. urlencode(sort) or "") ..
+                 (extra_data and "&extra_data=" .. urlencode(extra_data) or "") ..
+                 credentials
+    ```
+
+    If the session drops (for example a heartbeat the server refused), the credentials disappear on their own and later submissions fall back to guest scores with no call-site changes.
+    A missing `score` returns `false, "GameJolt: score is required"` instead of concatenating `nil` into the URL.
 
 ---
 
@@ -298,8 +345,7 @@ Gamejolt.init(Global.GetVariable("GamejoltID"), Global.GetVariable("GamejoltPK")
 local function login(name, token)
     local ok, err = Gamejolt.authUser(name, token)
     if (not ok) then
-        Gamejolt.username, Gamejolt.user_token = nil, nil
-        return false, err
+        return false, err          -- the library already logged out; no manual cleanup needed
     end
 
     Gamejolt.sessionUpdate(30, "active")      -- auto heartbeat afterwards
@@ -311,6 +357,8 @@ local function login(name, token)
     return true
 end
 ```
+
+Use `logout()` to drop the credentials, or `sessionClose()` to stop the session while staying logged in.
 
 ---
 
@@ -327,9 +375,13 @@ end
 !!! warning "Failures don't throw — they only return `false`"
     If you don't check the return value, failures are silently ignored. All calls are recommended to be written as `if (res == false) then ...`.
 
-!!! warning "The `success` returned by GameJolt is a string"
-    The library checks `data.response.success == "false"` — note it is the string `"false"`, not a boolean.
-    This follows the actual return of the GameJolt API, so don't "fix" it.
+!!! note "The `success` returned by GameJolt is a string"
+    GameJolt actually returns the strings `"true"` / `"false"`. The library checks
+    `payload.success == false or payload.success == "false"`, so both shapes are caught and there is nothing to convert.
+
+!!! note "Failed requests never escape into `love.update`"
+    `https.request` runs inside a `pcall`. In some lua-https builds DNS and TLS failures **raise** instead of returning an error code;
+    the wrapper turns them into `false, error message, "transport"` so a connection problem cannot take down the whole run.
 
 !!! note "Unavailable directly on non-Windows platforms"
     `https.dll` is a Windows dynamic library. `isAvailable()` returns `false`, and all requests return the unified unavailable message.

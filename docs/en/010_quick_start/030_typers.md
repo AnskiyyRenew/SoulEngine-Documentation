@@ -55,6 +55,9 @@ Create it with `Typers.InstText.New(text, position, layer, size)`:
 !!! note "No per-frame update needed"
     Once registered into a layer, `InstText` is drawn directly by `Layers` and is not processed every frame in `love.update`; it redraws itself after its content changes.
 
+!!! note "Reading the text size"
+    Every typer reports the width and height of the text it holds through `typer:GetWidth()`, `typer:GetHeight()` and `typer:GetLettersSize()`; see [Basic Development → Typers](../020_basic/030_typers.md#measuring-the-text).
+
 ---
 
 ---

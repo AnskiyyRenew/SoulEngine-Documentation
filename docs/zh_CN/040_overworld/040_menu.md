@@ -32,11 +32,21 @@ title: 菜单 · 存档 · 箱子
 
 进入 `ITEM` 后再按一次确认会进入 `使用` / `信息` / `丢弃` 三选一界面（ `_page` 变为 `"item2"` ）。
 
+!!! note "第三级菜单的动作路由"
+    在 `item2` 选中某项动作并按确认后，引擎调用 `ITEMS.DoItemAction(物品id, 动作名)` ，按 id 在 `Game/Logics/items.lua` 的 `_actions` 里查注册函数并执行。**未注册的物品走默认回退**（组装通用提示； `drop` 时移出背包）。详见 [初始化与场景骨架 → ITEMS](./000_init.md) 。<br>
+    进入 `item2` 的同一帧会被 `input_lock` 吞掉一次输入，避免打开子菜单的确认键直接触发所选动作。 `CELL` 页面选中某联系人后按确认则调用 `ITEMS.DoCellAction(联系人id)` 。
+
+!!! tip "空背包不进入物品页"
+    背包为空时在 `ITEM` 上按确认是 no-op ，停留在 `idle` 页，不打开空列表。
+
 !!! tip "启用 CELL 页面的条件"
     `DATA.player.getcell = true` 之后菜单才会出现第三项。<br>
     `stat.lua` 顶层已写入 `DATA.player.getcell = true` ，默认关闭该项时改为 `false` 。
 
 ![OW-05](../img/040_overworld/ow_05_menu.png)
+
+!!! note "菜单的上下位置"
+    左栏由两个同宽的框组成：上方是状态框，下方是三个按钮所在的按钮框。玩家在画面底部三分之一以下时，整栏绕中线 `240` 镜像，状态框落到按钮框下方；按钮框以 `240` 为中心，镜像后位置不变，因此按钮顺序与光标不受影响。判定规则与对话框共用 `Overworld.ui_prefer` / `ui_threshold` 。
 
 ---
 

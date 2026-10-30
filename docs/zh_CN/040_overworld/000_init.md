@@ -184,6 +184,8 @@ logic = {
     引擎侧**根本没有** `Scripts/Logics/items.lua` ，所以列表里那一档永远命中不了，物品表**事实上只有 `Game/Logics/items.lua` 一个来源**。<br>
     两份都找不到时会打印 `[Overworld] WARNING: items table not found under Game.Logics or Scripts.Logics.` ，随后调用 `ITEMS.FindItemByID` 会因索引 `nil` 而崩溃。
 
+物品定义是纯数据表，每个条目含 `id` / `name` / `_color` 。动作（ `use` / `info` / `drop` ）与电话拨号统一走下面两张以 **id 为 key** 的函数表，值是 `function(id)` 形式的闭包，函数体内通常调用 `Overworld.dialogNew` ； `items.lua` 还提供 `drop_item(id)` / `show_sprite(path)` 两个本地 helper（前者移出背包，后者夺控制画贴图并按取消键清除）。
+
 ```lua
 local db = {
     {id = "MonsterCandy", name = "Monster Candy"},
@@ -191,20 +193,31 @@ local db = {
     -- ...
 }
 
+-- 物品动作表（以 id 为 key）。每个 action 是 fn(id)。
 db._actions = {
-    {
-        id = "Spider",
-        use  = {"* You ate the Spider...", "* I CAN'T UNDERSTAND."},
-        info = {"* A spider."},
-        drop = {"* You dropped the Spider...\n* But nothing happened."}
-    }
+    Spider = {
+        use  = function(id) Overworld.dialogNew({"* You ate the Spider...", "* I CAN'T UNDERSTAND."}) end,
+        info = function(id) Overworld.dialogNew("* A spider.") end,
+        drop = function(id) drop_item(id); Overworld.dialogNew("* You dropped the Spider...") end,
+    },
+}
+
+-- 电话动作表（以 id 为 key）。每个值是 fn(id)。
+db._cell_actions = {
+    -- Toriel_1 = function(id) Overworld.dialogNew("* Ring ring...") end,
 }
 ```
 
 !!! example "ITEMS 方法"
     - `ITEMS.FindItemByID(id)` 按 id 取物品定义，返回含 `id` / `name` / `_color` 的表。
-    - `ITEMS.GetActionByID(id, action)` 取某物品的一段文本。
+    - `ITEMS.GetActionByID(id, action)` 按 id + action 取 `_actions` 里注册的函数（兼容旧接口）。
+    - `ITEMS.DoItemAction(id, action)` 三级菜单路由：按 id 取注册的 `use` / `info` / `drop` 函数并执行。**未注册的 id 或 action 走默认回退**，按 id 查 name 组装一条通用提示（ `drop` 时同时移出背包）。
+    - `ITEMS.DoCellAction(id)` 电话路由：按 id 取 `_cell_actions` 里注册的函数并执行。**未注册走默认回退**（默认 `Overworld.dialogNew` ）。
+    - `ITEMS.FindCellNameByID(id)` 按 id 查电话显示名（电话名只存于 `DATA.player.cells` ）。
         - `action` `"use"` / `"info"` / `"drop"` 。
+
+!!! tip "默认回退"
+    未在 `_actions` 注册的物品不会报错： `use` / `info` 取物品 name 组装通用提示， `drop` 移出背包后提示。大量一次性物品无需逐条注册，只给需要专属行为（例如贴图展示）的物品加条目即可。
 
 背包里存的**只是 id 字符串**，显示时再 `FindItemByID` 查名字和颜色。
 
@@ -225,7 +238,8 @@ db._actions = {
     - `Overworld.stat` 菜单模块。
     - `Overworld.debug` 是否开启调试绘制，默认 `false` 。
     - `Overworld.follow_player` 镜头是否自动跟随玩家，默认 `true` 。
-    - `Overworld.ui_prefer` 对话框默认出现在上还是下， `"down"` （默认）或 `"up"` 。
+    - `Overworld.ui_prefer` 对话框与菜单默认出现在上还是下， `"auto"` （默认，按玩家屏幕位置判定）／`"down"` ／`"up"` 。
+    - `Overworld.ui_threshold` `"auto"` 的判定线，画布坐标 Y，默认 `320` 。
 
 ---
 

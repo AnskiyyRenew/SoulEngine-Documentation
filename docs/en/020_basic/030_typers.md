@@ -16,6 +16,8 @@ The three **character-by-character** Typers are divided by "how tags are handled
 
 The fourth, `InstText`, has no typing animation, and its usage differs a lot from them, so it is placed separately at the end of this section.
 
+In addition, `Typers.CCAdd` builds on `InstText` to provide animated floating text, also placed at the end of this section.
+
 ---
 
 ### EText Typer
@@ -57,11 +59,12 @@ Set the style by adding tags with square brackets `[]` in the sentence.
     - `[font:x]` Sets the font to `x`. The path starts from `Resources/Fonts/`, but **`Game/Resources/Fonts/` is checked first**; same-named files in the Game region take priority. Setting the font conveniently turns off bondfont; to restore it you must turn it on again yourself.
     - `[effect:name, int]` Sets the character's effect.
         - `name` The effect name: `shake` vibrates in place, `rotate` does a slight rotation, other names mean no effect.
-        - `int` Effect intensity, default `1`; larger number means stronger.
+        - `int` Effect intensity; larger number means stronger. **Both the comma and the value must be written**: `[effect:shake, 1]`. Writing only `[effect:shake]` makes the whole tag do nothing (parsing relies on the comma separator). A value that is not a number falls back to `1`.
     - `[outline:r, g, b, a, t]` Sets the text's outer border.
-        - `r, g, b, a` Border color and alpha.
-        - `t` Border thickness.
-    - `[voice:name]` Sets the typing sound effect; files are in `Resources/Sounds/Voices/`, just write the file name.
+        - `r, g, b, a` Border color and alpha, in the `0 ~ 1` range, handed straight to `setColor`.
+        - `t` Border thickness, in pixels.
+        - All five segments accept **integers only**; a decimal such as `0.5` makes the whole tag fail silently.
+    - `[voice:name]` Sets the typing sound effect; files are in `Resources/Sounds/Voices/`, just write the file name. The default is `v_monster.wav`; setting it replaces the voice list with that single entry.
     - `[portrait:frames|interval|mode]` Sets the animation played simultaneously while typing, generally a character playing a speaking animation while talking.
         - `frames` Frame images, **separated by English commas**, e.g. `a.png, b.png`.
         - `interval` Seconds per frame, default `1/30`.
@@ -72,14 +75,14 @@ Set the style by adding tags with square brackets `[]` in the sentence.
     - `[noskip]` Forbids this sentence from being fast-forwarded by the cancel key, the opposite of `[skip]`.
     - `[next]` After this sentence finishes typing, immediately turn to the next sentence, without waiting for the Player to press confirm; also takes effect in `manual` mode.
         - A bubble belongs to "the sentence that displays it", so `[next]` clears the bubble together with the text; if you want to keep using the bubble in the next sentence you must re-`[showbubble:]`.
-    - `[showbubble:dir, pos]` Shows the bubble dialog box. `dir` is the tail direction, can be `left` / `right` / `up` / `down` (default `left`); `pos` is the tail's position along the border `0 ~ 1`, default `0.5`.
+    - `[showbubble:dir, pos]` Shows the bubble dialog box. `dir` is the tail direction, can be `left` / `right` / `up` / `down` (default `left`); `pos` is the tail's position along the border `0 ~ 1`, default `0.5`. **Both the comma and `pos` must be written**; `[showbubble:left]` alone has no effect.
     - `[hidebubble]` Hides the bubble dialog box.
     - `[func:name]` Calls a function named `name`. **Lookup order**: first check this typer's `funcs` registry (registered with `typer:SetFunc`), if not found fall back to the `_G[name]` global. So local / closure / upvalue functions, as long as registered first with `:SetFunc`, can also be called from text, without polluting the namespace by attaching to global.
     - `[func:name|a, b, c]` Calls a function named `name`, and can pass parameters, separated by English commas. Lookup order is the same as above.
         - Numeric strings are auto `tonumber`'d into numbers; other parameters are passed as strings as-is.
         - Function execution errors are wrapped in `pcall`, only printing `[EText] func callback error: ...` without interrupting typing.
         - When not found, prints `[EText] function not found in typer.funcs or _G: <name>` and skips.
-    - `^` This symbol can be used to directly reset all styles to default.
+    - `^` Resets color, alpha, outline, scale and effect to their defaults, **and adds a `0.3` second pause** (same dedicated timer as `[wait:]`, skipped while fast-forwarding). Font and font size are **not** reset; to change them back, write `[font:]` / `[size:]` again.
 
 !!! example "Instance methods"
     - `typer:SetFunc(name, fn)` Registers function `fn` into this typer's `funcs` table, so `[func:name]` can call local / closure / upvalue.
@@ -91,6 +94,23 @@ Set the style by adding tags with square brackets `[]` in the sentence.
 
 !!! tip "Tags can be written consecutively"
     `[font:x][colorHEX:ffff00][effect:shake, 2]` written consecutively like this is fine; effects stack in order.
+
+!!! example "Special characters in text"
+
+    Besides square-bracket tags, a few characters in the text are handled directly by the Engine:
+
+    - `\n` Line break; the cursor returns to the start of the line and moves down one row.
+    - `\t` Tab, as wide as four spaces.
+    - `* ` A leading asterisk plus space is treated as a dialogue prefix. The Engine normalizes `*X` into `* X`, and gives every wrapped line a **two-space hanging indent**. Panel text should not start with `* `, or the indent will push the characters out of the panel; see [Shop](../040_overworld/060_shop.md).
+
+!!! example "Auto-wrap"
+
+    `EText`'s `typer.auto_wrap` is **off** by default. Turning it on wraps by `size[1]`, with the same rules as `InstText`: English wraps by word, Chinese and other equal-width characters wrap character by character.
+
+    ```lua
+    local t = Typers.EText.New({"A very very long sentence that certainly won't fit"}, {60, 270}, 0, {300, 0})
+    t.auto_wrap = true
+    ```
 
 ---
 
@@ -230,6 +250,7 @@ Use `Typers.InstText.New(text, position, layer, size)` to create.
     - `SetColor(r, g, b)` Changes color, `0 ~ 1` or `0 ~ 255` both accepted.
     - `UseBondFont(config)` Switches to a different Chinese/English font config, same structure as `EText`'s bondfont.
     - `Destroy()` / `Remove()` Destroys. Decrements the character's reference in the cache by one, **can be called repeatedly**.
+    - `GetWidth()` / `GetHeight()` Width of the widest line and total height of every line; see [Measuring the Text](#measuring-the-text).
     - `t.font` / `t.fontsize` These two properties are written directly; writing them conveniently re-lays out once, no need to `Rebuild()` yourself.
 
 !!! warning "Color is baked into the character: change color first, then text"
@@ -257,3 +278,128 @@ Use `Typers.InstText.New(text, position, layer, size)` to create.
     `Layers.clear()` / `Typers.ClearAll()` will clear it together, but **calling `Destroy()` yourself is safest**.
     Creating repeatedly without destroying, the character sprites in the cache will only keep growing.
     `Typers.InstText.ClearCache()` can clear all character cache at once — but instances currently being drawn are also released together, use with caution.
+
+---
+
+### CCAdd Floating Text
+
+`Typers.CCAdd` wraps `InstText` into **animated floating text**: after the text is created, an animation function controls its visibility and movement, and it disappears on its own once finished. It suits text that does not need to appear character by character, such as damage numbers and pickup hints.
+
+Use `Typers.CCAdd(text, x, y, layer, align, anim_func)` to create.
+
+- `text` The text to display, passed straight to `InstText.New`. Passing a table only takes item `1`; line breaks must be written as `\n`.
+- `x` / `y` The **top-left** horizontal and vertical coordinates of the text, passed as two separate numbers, not a table.
+- `layer` Layer, default `0`.
+- `align` Alignment, default `"center"`, same values as `InstText:SetAlign`.
+- `anim_func` The animation function, called every frame as `func(self)`. If omitted, the default animation is used.
+
+The return value is the CC object itself, whose fields can be read and written directly:
+
+!!! example "CC object fields"
+    - `cc.inst` The underlying `InstText` instance; `alpha` / `x` / `y` / `fontsize` and similar properties can be assigned directly.
+    - `cc.time` Frame counter, starting at `0`. The default animation increments it every frame; a custom animation must increment it itself.
+    - `cc.func` The animation function itself.
+
+!!! example "Creation example"
+
+    ```lua
+    local cc = Typers.CCAdd("+20", 320, 240, 0, "center")
+    ```
+
+!!! warning "Alpha is 0 at creation"
+    `CCAdd` sets `cc.inst.alpha` to `0` after creation, so the text stays invisible until the animation raises the alpha.
+
+**Default animation:**
+
+When `anim_func` is omitted, the Engine creates four tweens on the first frame (`cc.time == 1`):
+
+- `alpha` `0` → `1`, 40 ticks, fade in.
+- `alpha` `1` → `0`, 70-tick delay then 40 ticks, fade out.
+- `y` original → `y - 30`, 50 ticks, `Quad Out`, rising 30 pixels first.
+- `y - 30` → `y - 60`, 70-tick delay then 50 ticks, `Quad In`, rising another 30 pixels.
+
+Both duration and delay are measured in ticks, consistent with `Tween.CreateTween`.
+
+**Custom animation:**
+
+`anim_func` is called with a colon, so `self` is the CC object itself:
+
+!!! example "Custom animation"
+
+    ```lua
+    local cc = Typers.CCAdd("MISS", 320, 200, 0, "center", function (self)
+        self.time = self.time + 1
+        self.inst.alpha = math.max(0, 1 - self.time / 60)
+        self.inst.y = self.inst.y - 1
+    end)
+    ```
+
+!!! warning "A custom animation must handle alpha and its own ending"
+    `cc.inst.alpha` is `0` at creation; if a custom animation never writes `alpha`, the text stays invisible.
+    The default animation's fade-out comes from a tween. A custom animation has no such layer and must decide when to end by itself.
+
+!!! note "The default animation releases itself when it ends"
+    At `cc.time == 125` the default animation destroys `cc.inst` and removes the CC from `Typers._cc`, so nothing else is needed.
+    `125` comes from the last tween: a `70`-frame delay plus a `50`-frame duration means it writes its final value on frame `123`, and the rest is margin.
+
+!!! warning "A custom animation is never released automatically"
+    A custom `anim_func` has no end condition, so the CC stays in `Typers._cc` and the `anim_func` keeps being called every frame.
+    Call `Typers.CCRemove(cc)` when the animation is over to destroy the instance and drop it from the list:
+
+    ```lua
+    Typers.CCRemove(cc)
+    ```
+
+    It can be called more than once, and also from inside the CC's own `anim_func`.
+
+!!! note "Cleared wholesale on a scene switch"
+    `Typers.ClearAll()` walks `Typers._cc`, destroys every `cc.inst` and empties the list; `Layers.clear()` calls it internally.
+
+!!! note "Update timing"
+    `Typers.Update` is called by `main.lua` inside `love.update`, **before** `scene.update`; it walks `Typers._cc` in reverse order and calls `func` on each entry.
+
+---
+
+## Measuring the Text
+
+Every typer can report the size of the text it currently holds, through the same three methods. Sizes ignore `typer.x` / `typer.y`: they describe the letters themselves, not where they sit on screen.
+
+!!! example "Measurement methods"
+    - `typer:GetWidth()` Pixel width of the **widest line**. `\n` and auto-wrap start new lines, which are measured separately; the largest result wins.
+    - `typer:GetHeight()` Pixel height from the top of the highest glyph to the bottom of the lowest one. Includes the gaps added between lines and each glyph's own `scale`.
+    - `typer:GetLettersSize()` Both values in one call, returned as two numbers (width, height) rather than a table.
+
+Code that holds a typer without knowing which module built it can use the module-level entry point, which accepts an instance of any of the four:
+
+- `Typers.GetLettersSize(typer)` Same two return values; `0, 0` for a nil typer or for an object that has no measurement methods.
+
+!!! example "Placing a second label next to the first"
+
+    ```lua
+    local gold = Typers.InstText.New("GOLD 120", {465, 420}, 1)
+    local w, h = gold:GetLettersSize()
+
+    -- Start 10 pixels past the first label instead of guessing a width.
+    local lv = Typers.InstText.New("LV 3", {465 + w + 10, 420}, 1)
+    ```
+
+!!! example "Branching on the height of a typed-out sentence"
+
+    ```lua
+    local t = Typers.EText.New({"A short line", "A much longer line that wraps"}, {60, 270}, 0, {300, 0})
+
+    --- Called once the sentence has finished typing.
+    local function fits_one_row(typer)
+        local _, h = Typers.GetLettersSize(typer)
+        return h <= 27
+    end
+    ```
+
+!!! note "`InstText` is final immediately, the other three grow over time"
+    `InstText` lays out the whole text when it is created, so both values are final right after `New()`, `SetText()` or `Rebuild()`.
+    `EText`, `NText` and `SText` only hold the letters typed so far, so the numbers keep growing until the sentence is done; a sentence that has not started yet contributes nothing.
+
+!!! warning "Only letters are measured"
+    Spaces create no letter, so they are absent from the result, while tags such as `[wait:x]` never appear in the layout at all.
+    Effects like `shake` move glyphs at draw time and are not included, so the footprint on screen can be a few pixels larger than the returned value.
+    Alignment does not change the size either: `SetAlign("center")` moves the letters without widening them.

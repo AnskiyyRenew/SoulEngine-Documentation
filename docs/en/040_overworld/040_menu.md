@@ -32,11 +32,21 @@ Module path: `Scripts/Libraries/Overworld/stat.lua`, exposed as the global `Stat
 
 After entering `ITEM`, pressing confirm again goes to the "Use / Info / Drop" three-choice (`_page` becomes `"item2"`).
 
+!!! note "Third-level action routing"
+    After choosing an action on the `item2` page and pressing confirm, the engine calls `ITEMS.DoItemAction(item_id, action_name)`, looking up the registered fn by id in `Game/Logics/items.lua`'s `_actions` and running it. **Unregistered items fall through to the default** (assembles a generic line; `drop` also removes the item). See [Initialization & scene skeleton → ITEMS](./000_init.md). <br>
+    The frame that enters `item2` is swallowed by `input_lock`, so the confirm press that opens the sub-menu can't instantly fire the chosen action. On the `CELL` page, confirm on a contact calls `ITEMS.DoCellAction(contact_id)`.
+
+!!! tip "Empty inventory blocks the item page"
+    With an empty inventory, confirm on `ITEM` is a no-op: it stays on the `idle` page and does not open an empty list.
+
 !!! tip "To show CELL, set getcell"
     The third menu item only appears after `DATA.player.getcell = true`. <br>
     `stat.lua` already has `DATA.player.getcell = true` at the top level; to disable it by default, change it to `false`.
 
 ![OW-05](../img/040_overworld/ow_05_menu.png)
+
+!!! note "Menu side"
+    The left column is two boxes of the same width: the status box on top and the box holding the three buttons below it. When the player is in the bottom third of the screen, the column mirrors across the midline `240` and the status box moves under the button box; the button box is centred on `240`, so it maps onto itself and neither the button order nor the cursor moves. The side is decided by the same `Overworld.ui_prefer` / `ui_threshold` as the dialog box.
 
 ---
 

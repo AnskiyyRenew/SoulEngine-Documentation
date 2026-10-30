@@ -41,7 +41,7 @@ Global.SetVariable("GamejoltPK", "abcdef0123456789abcdef0123456789")
 Gamejolt.init(Global.GetVariable("GamejoltID"), Global.GetVariable("GamejoltPK"))
 ```
 
-`init` 只做三件事：把 `app_id` 转成数字、存 `private_key` 、拼出 `base_url` 。
+`init` 做四件事：把 `app_id` 转成数字、存 `private_key` 、拼出 `base_url` 、清掉上一次遗留的登录状态。
 
 ??? quote "`init` 源码"
     ```lua
@@ -49,13 +49,16 @@ Gamejolt.init(Global.GetVariable("GamejoltID"), Global.GetVariable("GamejoltPK")
         gamejolt.app_id = tonumber(app_id)
         gamejolt.private_key = private_key
         gamejolt.base_url = "https://api.gamejolt.com/api/game/v1_2"
+        -- Pointing at another game must not keep the previous player logged in.
+        gamejolt.logout()
         return (gamejolt.app_id ~= nil and gamejolt.private_key ~= nil)
     end
     ```
 
-!!! warning "必须先 init"
-    `base_url` 只在 `init()` 里赋值。没初始化就调 `fetchUser()` 等方法，
-    会在拼 URL 时因为拼接 `nil` 直接抛错，而且是**运行到那一行才报**，不是加载时。
+!!! note "没 init 会返回 false，不会拼 nil 抛错"
+    `base_url` 只在 `init()` 里赋值。没初始化就调用任意接口时，
+    库会先做 `requireConfig()` 检查，返回 `false, "GameJolt: call gamejolt.init(app_id, private_key) first"` 。
+    切换到另一个 `app_id` 时 `init()` 会清掉旧的 `username` / `user_token` ，避免串号。
 
 ### 3. 确认能不能用
 
@@ -78,6 +81,8 @@ md5.sumhexa(base_url .. request_path .. private_key)
 
 其中 `request_path` 是**不含 signature 本身的完整路径+参数**。库里的每个方法都会自行拼一遍，调用方不需要处理。
 
+`request_path` 的参数值会先做百分号编码，再按编码后的字符串算签名，两边始终一致。
+
 ??? quote "`generateSignature` 与 `apiRequest`"
     ```lua
     local function generateSignature(request_path)
@@ -85,41 +90,56 @@ md5.sumhexa(base_url .. request_path .. private_key)
         return md5.sumhexa(input)
     end
 
-    local function apiRequest(url)
+    -- On failure returns false, message, kind, where kind is "transport" (unreachable, bad
+    -- HTTP status, unparseable body) or "api" (the server explicitly refused).
+    local function apiRequest(path)
         if (not https or type(https.request) ~= "function") then
             local platform = (SE and SE.system and SE.system.getOS and SE.system.getOS()) or "Unknown"
             local reason = https_error or "missing native https module"
-            return false, "GameJolt API unavailable on "..tostring(platform)..": "..reason
+            return false, "GameJolt API unavailable on "..tostring(platform)..": "..reason, "transport"
         end
 
-        -- lua-https (https.dll) API: returns code, body, headers
-        local code, response, headers = https.request(url)
+        local url = gamejolt.base_url .. path .. "&signature=" .. generateSignature(path)
 
-        if (code ~= 200) then
-            return false, "HTTP error: "..tostring(code)
+        -- lua-https (https.dll) API: returns code, body, headers. DNS and TLS failures raise
+        -- instead of returning a code in some builds, hence the pcall.
+        local raised, code, body = pcall(https.request, url)
+        if (not raised) then return false, "HTTPS request failed: "..tostring(code), "transport" end
+        if (not code) then return false, "HTTPS request failed: "..tostring(body), "transport" end
+        if (code ~= 200) then return false, "HTTP error: "..tostring(code), "transport" end
+
+        local data, pos, err = json.decode(body)
+        if (type(data) ~= "table") then
+            return false, "JSON decode error: "..tostring(err).."\nResponse: "..tostring(body), "transport"
         end
 
-        local data, pos, err = json.decode(response)
-        if (not data) then
-            return false, "JSON decode error: "..tostring(err).."\nResponse: "..tostring(response)
+        -- A body that parses but carries no response envelope is not a valid success.
+        local payload = data.response
+        if (type(payload) ~= "table") then
+            return false, "Malformed response: missing response envelope", "transport"
         end
 
-        if (data.response and data.response.success == "false") then
-            return false, data.response.message or "API error"
+        -- GameJolt reports success as the string "true"/"false", but tolerate a bare boolean
+        -- so neither shape slips past the check.
+        if (payload.success == false or payload.success == "false") then
+            return false, payload.message or "API error", "api"
         end
 
-        return data.response
+        return payload
     end
     ```
+
+`apiRequest` 收的是**不带 `signature` 的路径**，URL 与签名都由它在内部组装，调用方不需要自己拼。
 
 ### 返回值的统一约定
 
 | 情况 | 返回 |
 |---|---|
 | 成功 | `data.response` （一张表），**没有第二个返回值** |
-| 失败 | `false, 错误信息字符串` |
+| 传输层失败（无 https 模块、网络异常、HTTP 状态码非 200、响应无法解析） | `false, 错误信息, "transport"` |
+| 服务端拒绝（业务层返回失败） | `false, 错误信息, "api"`，错误信息即接口返回的 `message` |
 
-所以调用时要么先判 `false` ，要么像某些方法那样自己包一层：
+第三个返回值 `kind` 用来区分"没连上"和"连上了但被拒"。库内部用它判断心跳要不要继续；调用方一般用不到，忽略即可。
 
 ```lua
 local res, err = Gamejolt.fetchUser(nil, "somebody")
@@ -130,10 +150,9 @@ else
 end
 ```
 
-!!! bug "成功时第二返回值也是 nil，别把它当错误码"
-    比如 `fetchUser` 成功时只返回 `data.response` ，第二个返回值是 `nil` 。
-    写成 `local res, err = ...; if err then ...` 是安全的，但 `if (not res) then` 在
-    某些接口返回空表时也会误判，统一使用 `res == false` 判断。
+!!! note "失败一定返回 `false`"
+    成功只返回一张表，失败总是以 `false` 开头。`if (not res) then` 也能用，
+    但 `res == false` 更贴近约定： `res` 为表时一定是成功。
 
 ---
 
@@ -142,41 +161,45 @@ end
 ### 通用
 
 !!! example "通用"
-    - `init(app_id, private_key)` 设置 `app_id` / `private_key` / `base_url` ，返回两者是否都非空。
+    - `init(app_id, private_key)` 设置 `app_id` / `private_key` / `base_url` ，返回两者是否都非空，并清掉旧登录状态。
     - `isAvailable()` 原生 `https` 模块是否就绪。失败时第二返回值是带平台名的说明。
-    - `isLoggedIn()` `user_token` 与 `username` 是否都已设置（**不校验有效性**，见下方警告）。
+    - `isLoggedIn()` 是否已有一份**被服务端接受过**的凭据，见下方说明。
+    - `logout()` 清掉本地 `username` / `user_token` 并停掉心跳。纯本地操作，不发请求。
 
 ### 用户
 
 !!! example "用户"
     - `fetchUser(user_id, username)` 查用户信息，两个参数给一个即可，**不需要登录**。
-    - `authUser(username, user_token)` 验证用户名 + token。成功后 `gamejolt.username` / `gamejolt.user_token` 留着给后续接口用。
+    - `authUser(username, user_token)` 验证用户名 + token。只有服务端接受之后，凭据才会存下来给后续接口用。
+    - `logout()` 丢弃本地凭据，回到未登录状态。
 
-!!! bug "`authUser` 失败后 `isLoggedIn()` 仍然是 true"
-    源码是**先把 username/token 存下来、再发请求**：
-
-    ```lua
-    function gamejolt.authUser(username, user_token)
-        gamejolt.username = username       -- 先存
-        gamejolt.user_token = user_token
-        ...
-        local success, err = apiRequest(url)
-        return success ~= false, err
-    end
-    ```
-
-    网络失败 / token 错误时它返回 `false, err` ，但两个字段**已经写进去了**，
-    于是 `isLoggedIn()` 依旧返回 `true` ，后面所有需要登录的接口都会带着错 token 去请求。
-
-    需要在调用方补一层清理：
+!!! note "`authUser` 先验证、后写入"
+    旧实现是先把 `username` / `token` 存下来再发请求，失败也不回滚，于是 `authUser` 返回 `false` 时
+    `isLoggedIn()` 依然是 `true` ，后续接口带着无效 token 一路失败。现在是**验证通过才提交**：
 
     ```lua
-    local ok, err = Gamejolt.authUser(name, token)
-    if (not ok) then
-        Gamejolt.username = nil
-        Gamejolt.user_token = nil
+    local path = "/users/auth/?game_id=" .. gamejolt.app_id ..
+                 "&username=" .. urlencode(clean_user) ..
+                 "&user_token=" .. urlencode(clean_token)
+
+    local result, message = apiRequest(path)
+    if (result == nil or result == false) then
+        gamejolt.logout()
+        return false, message
     end
+
+    gamejolt.username = clean_user
+    gamejolt.user_token = clean_token
+    gamejolt._verified = true
+    return true
     ```
+
+    由此得到几条确定的行为：
+
+    - `isLoggedIn()` 为 `true` 意味着这份凭据**至少成功通过一次** `/users/auth/`
+    - `authUser` 失败会把库恢复到未登录状态，**不需要**调用方手动置 nil
+    - 用户名与 token 会先去掉首尾空白再从非空才算合法，纯空格或非字符串入参直接返回 `false`
+    - 重新登录失败时，上一次登录状态会被清掉，不会留半新半旧的凭据
 
 ### 奖杯（成就）
 
@@ -227,6 +250,15 @@ Gamejolt.sessionUpdate(30, "active")
 !!! warning "`interval` 是秒不是毫秒"
     `state.elapsed = state.elapsed + dt` ，`dt` 是秒。写成 `30000` 会得到 30000 秒一次心跳。
 
+!!! note "心跳被服务端拒绝时会停掉并掉线"
+    每次 ping 的失败原因由第三个返回值 `kind` 区分：
+
+    - `"transport"` 网络不通、状态码非 200 等 —— 只记 `last_error` ，下一轮继续重试
+    - `"api"` 服务端明确拒绝（凭据失效、会话过期等） —— 置 `_session_auto.enabled = false` 并把 `_verified` 置为 `false`
+
+    后一种情况下 `isLoggedIn()` 会变成 `false` ，避免整个游戏周期内反复用无效凭据重试。
+    玩家重新 `authUser` 成功后再调 `sessionUpdate()` 即可恢复。
+
 ### 数据存储（云存档 / 全局数据）
 
 一套简单的 key-value 存储。
@@ -249,29 +281,29 @@ if (res ~= false and res.data) then mySave = json.decode(res.data) end
 Gamejolt.dataStore("motd", "今天服务器维护")
 ```
 
-!!! danger "`key` 和 `data` 没有做任何 URL 编码"
-    源码是裸字符串拼接：
+!!! note "`key` 和 `data` 会被百分号编码"
+    所有查询参数值都过一遍 `urlencode` ，再按编码后的字符串算签名：
 
     ```lua
-    local url = gamejolt.base_url .. "/data-store/set/?game_id=" .. gamejolt.app_id ..
-                "&key=" .. key .. "&data=" .. data .. ...
+    local path = "/data-store/set/?game_id=" .. gamejolt.app_id ..
+                 "&key=" .. urlencode(key) .. "&data=" .. urlencode(data) .. credentials
     ```
 
-    只要 key 或 data 里出现 `&` 、 `=` 、 `#` 、空格、中文，URL 就会被截断/解析错，
-    而且**签名是按拼好的字符串算的**，服务端对不上会直接返回签名错误。
+    所以 `key` / `data` 里带空格、中文、`&` 、 `=` 、 `#` 都不会截断 URL 或导致签名不匹配。
+    仍然建议对结构化数据先 `json.encode` 再存，方便读回来解析。
 
-    可行的处理方式：
-
-    - key 只用 `[A-Za-z0-9_-]`
-    - data 先 `json.encode` 再做一次**自行实现**的百分号编码（或 base64）再传
-    - 不要直接把玩家输入的文本拼进去
+!!! note "`user_data` 为 true 时会先检查登录"
+    旧实现在未登录时拼 `nil` 凭据直接抛错。现在 `user_data` 为 `true` 且未登录时返回
+    `false, "GameJolt: not authenticated, call gamejolt.authUser(username, user_token) first"` 。
 
 ### 分数榜
 
 !!! example "分数榜"
     - `fetchScoresLocal(table_id)` 拉榜单前 N 名，**不需要登录**。`table_id` 省略则取游戏的主榜。
     - `fetchScoresGlobal(table_id)` 带 `username + user_token` 请求，返回里会多出玩家自己的排名/前后名次，**需要登录**。
-    - `submitScore(score, table_id, sort, extra_data)` 提交分数。`sort` 是展示用的数值，`extra_data` 是额外文本（比如用时、等级）。
+    - `submitScore(score, table_id, sort, extra_data, as_guest)` 提交分数。`sort` 是展示用的数值，`extra_data` 是额外文本（比如用时、等级）。
+      - 已登录时自动带上凭据，分数挂到玩家账号上
+      - 未登录时按游客提交，第五个参数 `as_guest` 传 `true` 则在已登录状态下也强制按游客提交
 
 ```lua
 Gamejolt.submitScore(12345, 535, 12345, "LV19|Genocide")
@@ -281,11 +313,25 @@ if (res ~= false and res.scores) then
 end
 ```
 
-!!! bug "`submitScore` 不带用户名/token，提交的是游客分数"
-    拼 URL 时**没有**附加 `username` / `user_token` （对比 `fetchScoresGlobal` 就带了），
-    所以即使已调用 `authUser` ，分数也是以 **guest** 身份提交的，不会挂到玩家账号上。
+!!! note "凭据拼在所有可选参数之后"
+    `submitScore` 先拼 `table_id` / `sort` / `extra_data` ，末尾再追加凭据，所以两者位置不会互相影响：
 
-    想提交实名分数，自己照着库的写法补一个带凭据的版本，或改这个库。
+    ```lua
+    local credentials = ""
+    if (not as_guest and gamejolt.isLoggedIn()) then
+        credentials = userParams()
+    end
+
+    local path = "/scores/add/?game_id=" .. gamejolt.app_id ..
+                 "&score=" .. urlencode(score) ..
+                 (table_id and "&table_id=" .. urlencode(table_id) or "") ..
+                 (sort and "&sort=" .. urlencode(sort) or "") ..
+                 (extra_data and "&extra_data=" .. urlencode(extra_data) or "") ..
+                 credentials
+    ```
+
+    掉线后（比如心跳被服务端拒绝）凭据会自动消失，无需调用方干预，后续提交自然降级成游客分数。
+    `score` 缺失时直接返回 `false, "GameJolt: score is required"` ，不会把 `nil` 拼进 URL。
 
 ---
 
@@ -298,8 +344,7 @@ Gamejolt.init(Global.GetVariable("GamejoltID"), Global.GetVariable("GamejoltPK")
 local function login(name, token)
     local ok, err = Gamejolt.authUser(name, token)
     if (not ok) then
-        Gamejolt.username, Gamejolt.user_token = nil, nil
-        return false, err
+        return false, err          -- 库内部已经logout()，不用手动清凭据
     end
 
     Gamejolt.sessionUpdate(30, "active")      -- 之后自动心跳
@@ -311,6 +356,8 @@ local function login(name, token)
     return true
 end
 ```
+
+退出登录走 `logout()` ；只想停会话但保持登录则用 `sessionClose()` 。
 
 ---
 
@@ -327,9 +374,13 @@ end
 !!! warning "失败不会抛异常，只返回 `false`"
     没判返回值的话，失败会被静默忽略。所有调用都建议写成 `if (res == false) then ...` 。
 
-!!! warning "GameJolt 返回的 `success` 是字符串"
-    库里判的是 `data.response.success == "false"` —— 注意是字符串 `"false"` 不是布尔。
-    这是照 GameJolt API 的实际返回写的，别去"修正"它。
+!!! note "GameJolt 返回的 `success` 是字符串"
+    GameJolt 实际返回的是字符串 `"true"` / `"false"` 。库判的是
+    `payload.success == false or payload.success == "false"` ，两种形式都能拦住，不用自己去转类型。
+
+!!! note "请求失败不会抛出到 `love.update`"
+    `https.request` 被包在 `pcall` 里。DNS 失败、TLS 握手失败等在某些 lua-https 构建里是**抛错**而非返回错误码，
+    包一层之后统一转成 `false, 错误信息, "transport"` ，不会让整局崩掉。
 
 !!! note "非 Windows 平台直接不可用"
     `https.dll` 是 Windows 动态库。`isAvailable()` 会返回 `false` ，所有请求返回统一的不可用提示。

@@ -88,8 +88,15 @@ end)
 !!! example "Dialogue methods"
     - `Overworld.dialogNew(texts, position)` pops up a dialog box and returns the `dialog` object.
         - `texts` an array of text.
-        - `position` `"down"` (bottom of screen, default) or `"up"` (top).
-    - `Overworld.ui_prefer` the default value used when `position` is not passed.
+        - `position` `"down"` (bottom of screen) or `"up"` (top). Omitted, the value comes from `Overworld.ui_prefer`.
+    - `Overworld.ui_prefer` the value used when `position` is not passed.
+        - `"auto"` (default) derives the side from the player's position on screen: above `ui_threshold` it opens upwards, otherwise downwards.
+        - `"down"` / `"up"` pins one side, no more auto-detection.
+    - `Overworld.ui_threshold` the auto-detection line in canvas Y, default `320` (two thirds of 480).
+    - `Overworld.ResolveUIPosition()` returns the value used this frame, `"up"` or `"down"`.
+    - `Overworld.FlipY(y)` mirrors a canvas Y across the midline `240`, i.e. `480 - y`.
+
+Both sides share one box and one set of text offsets: only the box moves, the text keeps its offset from the box and is therefore never mirrored.
 
 The returned `dialog` has two fields: `block` (the white-bordered black-filled box) and `text` (the typewriter object).
 

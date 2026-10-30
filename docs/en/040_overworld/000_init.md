@@ -184,6 +184,8 @@ The lookup order for the item table is `Game.Logics.items` → `Scripts.Logics.i
     The engine side **simply has no** `Scripts/Logics/items.lua`, so that entry in the list can never be hit — in fact the item table **only has `Game/Logics/items.lua` as a source**. <br>
     When both are missing, it prints `[Overworld] WARNING: items table not found under Game.Logics or Scripts.Logics.`, and then any use of `ITEMS.FindItemByID` will crash from indexing `nil`.
 
+Item definitions are pure data tables, each with `id` / `name` / `_color`. Actions (`use` / `info` / `drop`) and phone calls are routed through two tables keyed by **id**, whose values are `function(id)` closures that usually call `Overworld.dialogNew`; `items.lua` also provides the `drop_item(id)` / `show_sprite(path)` helpers (the former removes an item from the inventory, the latter seizes control, draws a sprite, and clears it on cancel).
+
 ```lua
 local db = {
     {id = "MonsterCandy", name = "Monster Candy"},
@@ -191,20 +193,31 @@ local db = {
     -- ...
 }
 
+-- Item action table (keyed by id); each action is a fn(id).
 db._actions = {
-    {
-        id = "Spider",
-        use  = {"* You ate the Spider...", "* I CAN'T UNDERSTAND."},
-        info = {"* A spider."},
-        drop = {"* You dropped the Spider...\n* But nothing happened."}
-    }
+    Spider = {
+        use  = function(id) Overworld.dialogNew({"* You ate the Spider...", "* I CAN'T UNDERSTAND."}) end,
+        info = function(id) Overworld.dialogNew("* A spider.") end,
+        drop = function(id) drop_item(id); Overworld.dialogNew("* You dropped the Spider...") end,
+    },
+}
+
+-- Cell action table (keyed by id); each value is fn(id).
+db._cell_actions = {
+    -- Toriel_1 = function(id) Overworld.dialogNew("* Ring ring...") end,
 }
 ```
 
 !!! example "ITEMS methods"
     - `ITEMS.FindItemByID(id)` gets the item definition by id, returning a table with `id` / `name` / `_color`.
-    - `ITEMS.GetActionByID(id, action)` gets a piece of text for an item.
+    - `ITEMS.GetActionByID(id, action)` fetches the fn registered in `_actions` (legacy compat).
+    - `ITEMS.DoItemAction(id, action)` third-level menu router: looks up the registered `use` / `info` / `drop` fn by id and runs it. **Unregistered id or action falls through to the default**, which assembles a generic line from the name (and removes the item on `drop`).
+    - `ITEMS.DoCellAction(id)` cell router: looks up the fn registered in `_cell_actions` and runs it. **Unregistered falls through to the default** (`Overworld.dialogNew`).
+    - `ITEMS.FindCellNameByID(id)` looks up a cell's display name by id (cell names live only in `DATA.player.cells`).
         - `action` is `"use"` / `"info"` / `"drop"`.
+
+!!! tip "Default fallback"
+    Items not registered in `_actions` do not error: `use` / `info` assemble a generic line from the name, and `drop` removes the item before notifying. Bulk one-off items need no per-id entry — register only those that need custom behaviour (e.g. showing a sprite).
 
 The inventory only stores **id strings**; the name and color are looked up via `FindItemByID` at display time.
 
@@ -225,7 +238,8 @@ The inventory only stores **id strings**; the name and color are looked up via `
     - `Overworld.stat` the menu module.
     - `Overworld.debug` whether debug drawing is enabled, default `false`.
     - `Overworld.follow_player` whether the camera auto-follows the player, default `true`.
-    - `Overworld.ui_prefer` whether the dialog box appears at the top or bottom by default, `"down"` (default) or `"up"`.
+    - `Overworld.ui_prefer` whether dialogs and the menu appear at the top or bottom by default, `"auto"` (default, derived from the player's position on screen) / `"down"` / `"up"`.
+    - `Overworld.ui_threshold` the auto-detection line in canvas Y, default `320`.
 
 ---
 

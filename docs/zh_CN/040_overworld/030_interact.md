@@ -88,8 +88,15 @@ end)
 !!! example "对话方法"
     - `Overworld.dialogNew(texts, position)` 弹一个对话框，返回 `dialog` 对象。
         - `texts` 文本数组。
-        - `position` `"down"` （屏幕下方，默认）或 `"up"` （上方）。
-    - `Overworld.ui_prefer` 不传 `position` 时用这个默认值。
+        - `position` `"down"` （屏幕下方）或 `"up"` （上方）。省略时由 `Overworld.ui_prefer` 决定。
+    - `Overworld.ui_prefer` 不传 `position` 时采用的值。
+        - `"auto"` （默认）按玩家在画面中的位置判定：低于 `ui_threshold` 时出在上方，否则出在下方。
+        - `"down"` ／ `"up"` 固定一侧，不再自动判定。
+    - `Overworld.ui_threshold` `"auto"` 的判定线，画布坐标 Y，默认 `320` （480 的三分之二）。
+    - `Overworld.ResolveUIPosition()` 返回这一帧会采用的值， `"up"` 或 `"down"` 。
+    - `Overworld.FlipY(y)` 把画布 Y 绕中线 `240` 镜像，即 `480 - y` 。
+
+两个位置共用同一个框与同一份文字偏移：切换时只移动框，框内文字相对框的偏移量保持不变，因此文字不会跟着镜像翻转。
 
 返回的 `dialog` 有两个字段： `block` （那个白边黑底的框）与 `text` （打字机对象）。
 
