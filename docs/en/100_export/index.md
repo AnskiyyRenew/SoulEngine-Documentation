@@ -1,5 +1,5 @@
 ---
-title: Export & Release
+title: ❕️ Export & Release
 ---
 
 The game runs, the content is done — now it's time to turn it into **something others can download and open**.
@@ -154,6 +154,11 @@ Export/
 Requires LÖVE installed on the machine (the UI needs to point at the directory containing `love.exe`).
 
 The output is a **folder**, not a single exe — `love.dll`, `SDL2.dll`, etc. must sit with the exe; missing even one means it won't open.
+
+!!! note "The project's own `.dll` files are copied too"
+    These libraries (`Resources/Libs/https.dll`, `Resources/Libs/DiscordRPC/discord-rpc-x64.dll`, `Scripts/Libraries/PerfectPixel/cpp.dll` and so on) are loaded through `ffi.load` / `require` by the OS loader, which cannot read them out of the `.love` archive; a fused exe also has no source tree on disk for the original paths.
+
+    The packager copies them **flat next to the exe** and additionally **mirrors each one at its original relative path**, so loaders that still probe `Resources/Libs/...` keep working. On a name clash the LÖVE runtime copy is kept; when x86/x64 builds share a name, the x64 one is kept.
 
 When releasing, there are two ways to ship:
 

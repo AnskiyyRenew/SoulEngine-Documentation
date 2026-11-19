@@ -68,6 +68,7 @@ python build.py --ndk D:/android-sdk/ndk/27.3.13750724
 |---|---|---|
 | Windows 源码模式 | `Resources/Libs/Secrets/` | `build.py` |
 | fused exe | **exe 同目录**（fused 之后磁盘上没有源码树） | `build_tool.py: copy_secret_dll` |
+| fused exe，其它项目 DLL | **exe 同目录**，并按原相对路径镜像一份 | `build_tool.py: copy_project_dlls` |
 | Android | love-android 模板的 `app/src/main/jniLibs/<abi>/` | `build_tool.py: copy_secret_sos` ，在 gradlew 之前跑 |
 | Web / love.js | 不可能，没有原生库 | 自动回退 |
 

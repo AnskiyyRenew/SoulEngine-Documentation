@@ -1,5 +1,5 @@
 ---
-title: ShaderToy 转化库
+title: ❕️ ShaderToy 转化库
 ---
 
 [ShaderToy](https://www.shadertoy.com/) 上有大量现成的 GLSL 片元着色器。该库将它们的
@@ -112,6 +112,77 @@ ShaderToy 的 `iChannel0~3` 默认是噪声图。这个库的做法：
 s:setChannel(0, myImage)      -- 第 0 通道用 myImage
 ```
 
+### 宿主贴图通道
+
+把转换后的 Shader 挂到贴图上时，`SetShaders` 会把该贴图作为 main texture 传入 `effect`，
+`iChannelN` 在转换库中则表示外部贴图槽，两者互不相通。着色器若用 `iChannelN` 采样宿主贴图本身，
+可通过 `convert` 的 `hostChannel` 选项改写采样，无需调用 `setChannel`。
+
+```lua
+local scene = {}
+local shadertoy = ImportFile("ShaderToy")
+
+local code = [[
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    vec2 uv = fragCoord / iResolution.xy;
+    vec4 src = texture(iChannel0, uv);
+    fragColor = vec4(src.r, 0.0, 0.0, 1.0);
+}
+]]
+
+local s = shadertoy.convert(code, { hostChannel = 0 })
+-- 简写：shadertoy.convert(code, 0)
+
+local bg = Sprites.CreateSprite("px.png", 0)
+bg:Scale(640, 480)
+bg:SetShaders({s.shader})
+
+function scene.update(dt)
+    s:update(dt)
+end
+
+function scene.draw() end
+
+function scene.clear()
+    Layers.clear()
+end
+
+return scene
+```
+
+`px.png` 是白色贴图，上面的场景会输出纯红画面；把 `FirstRoom` 指向该场景即可检查改写是否生效。
+
+| 选项 | 取值 | 作用 |
+|---|---|---|
+| `hostChannel` | 0-3 | 指定一个通道采样宿主贴图 |
+| `hostChannels` | 数组 | 指定多个通道采样宿主贴图 |
+| `hostFlipY` | `false` | 关闭采样坐标的 y 翻转，默认开启 |
+
+改写发生在 `convert` 阶段，只替换采样表达式，其余代码保持原样：
+
+| 原写法 | 改写后 |
+|---|---|
+| `texture(iChannel0, uv)` | `Texel(texture, vec2((uv).x, 1.0 - (uv).y))` |
+
+`texture` 是转换后 `effect` 的 main texture 参数，因此 `Texel` 采到的即是宿主贴图。
+y 翻转用于抵消 `fragCoord` 与 `texture_coords` 的 y 方向差异；着色器若已按 LÖVE 坐标书写 UV，
+可设 `hostFlipY = false`。UV 表达式整体保留，偏移采样与多次调用不受影响。
+采样调用除 UV 之外还带其他参数时，只保留第一个 UV 表达式。
+
+!!! warning "宿主通道不占用纹理槽"
+    指定为宿主的通道不会生成噪声占位贴图，`update(dt)` 不会向该通道发送贴图，
+    `setChannel` / `setAudioChannel` 对该通道的调用会被忽略并打印警告。原始代码中除采样外
+    没有其他引用时，转换会一并移除该通道的 `extern Image iChannelN;` 声明。
+    `iChannelResolutionN` 取自实际通道贴图，宿主通道没有独立贴图，该值不会被赋值；
+    需要尺寸时使用 `iResolution` 或 `texture_coords`。
+
+!!! warning "改写范围"
+    改写处理 `mainImage` 及辅助代码中形如 `texture(iChannelN, uv)` 的采样，但改写后的
+    `texture` 名称指向 `effect` 的局部参数，在辅助函数作用域内不可见。辅助函数中出现此类采样时，
+    需把 `Image` 作为参数传入辅助函数，或手工改写。多 Pass 工程的 pass 绘制到画布而非贴图，
+    `newProject()` / `addPass()` 不提供宿主通道选项。
+
 ### 音频通道
 
 `setAudioChannel(id, filepath)` 会把音频变成一张 **512×2** 的贴图送进 shader：
@@ -148,7 +219,8 @@ s:setAudioChannel(0, "Resources/Music/mus_battle.ogg")
 | `s:generateNoiseTexture(size)` | 手动生成一张噪声贴图 |
 
 字段： `s.shader` （真 Shader）、 `s.original` （原文）、 `s.code` （转换后）、
-`s.externs` （插入的声明）、 `s.runtimeFlags` （检测到哪些 uniform）、 `s.time` / `s.frame` 。
+`s.externs` （插入的声明）、 `s.runtimeFlags` （检测到哪些 uniform）、
+`s.hostChannels` （绑定到宿主贴图的通道集合）、 `s.time` / `s.frame` 。
 
 !!! example "转换失败时的排查方式"
     ```lua

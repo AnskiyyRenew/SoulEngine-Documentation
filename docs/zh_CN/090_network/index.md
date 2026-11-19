@@ -1,5 +1,5 @@
 ---
-title: 网络开发
+title: ❕️ 网络开发
 ---
 
 网络开发专题讲引擎自带的三个联网/联机相关的库。它们彼此独立，按需取用：
@@ -53,6 +53,9 @@ local sock = ImportFile("Network.sock")
 !!! note "Android / 移动端"
     `https.dll` 与 `discord-rpc-*.dll` 都是 **Windows 专用**动态库，打进 Android 包也加载不了。
     这两个库在非 Windows 平台会自动降级（`isAvailable()` 返回 `false` ），**不要**把关键逻辑挂在它们身上。
+
+!!! note "Windows 打包"
+    这两个 `.dll` 由打包脚本复制到 exe 同目录，不需要手动处理。原因与复制规则见 [导出 → Windows](../100_export/index.md) 。
 
 ---
 

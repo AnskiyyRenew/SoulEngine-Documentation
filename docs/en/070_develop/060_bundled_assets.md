@@ -238,8 +238,13 @@ Not in use: `mus_house1.ogg`, `mus_mysteriousroom2.ogg`, `mus_options_fall.ogg`,
 | `Resources/Libs/DiscordGameSDK/x64/`, `x86/` | not loaded | Legacy Game SDK kept as an alternative; comments in the source explain why RPC is used instead |
 | `Resources/Libs/Secrets/secrets.dll` | `Utils/Secrets.lua` | Secret store, see [Native Secret Store](./050_secrets.md) |
 
-!!! warning "Shared objects on Android"
-    Native libraries **cannot** be loaded out of `game.love` on Android — they have to go into `app/src/main/jniLibs/<abi>/`. Details in [Native Secret Store](./050_secrets.md) and [Export](../100_export/index.md).
+!!! warning "Native libraries cannot load from inside the archive"
+    `ffi.load` / `require` go through the OS loader, which cannot read inside `game.love`, so native libraries have to live outside the package:
+
+    - **Windows**: the packager copies these `.dll` files next to the exe and mirrors them at their original relative paths. A fused exe has no source tree on disk, so paths such as `Resources/Libs/...` resolve to nothing.
+    - **Android**: they go into `app/src/main/jniLibs/<abi>/`.
+
+    Details in [Native Secret Store](./050_secrets.md) and [Export](../100_export/index.md).
 
 ---
 

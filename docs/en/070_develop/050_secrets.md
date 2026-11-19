@@ -68,6 +68,7 @@ This is where the whole scheme most easily goes wrong: `ffi.load` goes through t
 |---|---|---|
 | Source mode on Windows | `Resources/Libs/Secrets/` | `build.py` |
 | Fused exe | **Next to the exe** — a fused exe has no source tree on disk | `build_tool.py: copy_secret_dll` |
+| Fused exe, other project DLLs | **Next to the exe**, plus a copy mirrored at the original relative path | `build_tool.py: copy_project_dlls` |
 | Android | `app/src/main/jniLibs/<abi>/` in the love-android template | `build_tool.py: copy_secret_sos`, run before gradlew |
 | Web (love.js) | Impossible — no native libraries | Falls back automatically |
 

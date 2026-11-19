@@ -1,5 +1,5 @@
 ---
-title: 计时器
+title: ❕️ 计时器
 ---
 
 计时器用于在指定的帧数或秒数之后执行代码。
@@ -32,13 +32,16 @@ title: 计时器
 ## 每隔一段时间执行：`runFrame` / `runSecond`
 
 ```lua
-timers.runFrame(func, interval, count)
-timers.runSecond(func, interval, count)
+timers.runFrame(func, interval, count, immediate)
+timers.runSecond(func, interval, count, immediate)
 ```
 
 - `func` 到点执行的回调。
 - `interval` 间隔。`runFrame` 单位是**帧**（默认 `60` ），`runSecond` 单位是**秒**（默认 `1.0` ）。
 - `count` 一共执行多少次（默认 `1` ）。
+- `immediate` 传 `true` 时，计时器创建的那一刻先调用一次 `func`，这次调用计入 `count`，之后才按 `interval` 正常计时（默认 `false`，即维持旧行为）。
+
+`immediate` 计入 `count` 的含义：`runFrame(func, 60, 3, true)` 会在创建时执行 1 次，之后第 60 帧、第 120 帧各 1 次，共 3 次。若希望立即这次不占用总数，把 `count` 相应加 1 即可（上例写 `4` 则在第 180 帧还有一次）。
 
 !!! example "示例"
 
@@ -52,6 +55,11 @@ timers.runSecond(func, interval, count)
     timers.runSecond(function()
         print("half second")
     end, 0.5, 3)
+
+    -- 立即执行 1 次，之后每 0.5 秒 1 次，共 3 次
+    timers.runSecond(function()
+        print("now, then every half second")
+    end, 0.5, 3, true)
     ```
 
 ---

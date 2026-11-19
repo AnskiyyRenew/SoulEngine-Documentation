@@ -1,5 +1,5 @@
 ---
-title: ShaderToy Conversion Library
+title: ❕️ ShaderToy Conversion Library
 ---
 
 [ShaderToy](https://www.shadertoy.com/) has a large number of ready-made GLSL fragment shaders. This library **automatically rewrites** their `mainImage` style into a Shader that LÖVE can compile, saving you the manual porting work.
@@ -106,6 +106,80 @@ ShaderToy's `iChannel0~3` default to noise images. This library's approach:
 s:setChannel(0, myImage)      -- channel 0 uses myImage
 ```
 
+### Host texture channel
+
+When a converted shader is attached to a sprite, `SetShaders` passes that sprite's image to
+`effect` as the main texture, while `iChannelN` denotes an external texture slot in this library.
+The two are separate. When a shader samples the sprite's own image through `iChannelN`, the
+`hostChannel` option of `convert` rewrites those samples and `setChannel` is not needed.
+
+```lua
+local scene = {}
+local shadertoy = ImportFile("ShaderToy")
+
+local code = [[
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    vec2 uv = fragCoord / iResolution.xy;
+    vec4 src = texture(iChannel0, uv);
+    fragColor = vec4(src.r, 0.0, 0.0, 1.0);
+}
+]]
+
+local s = shadertoy.convert(code, { hostChannel = 0 })
+-- shorthand: shadertoy.convert(code, 0)
+
+local bg = Sprites.CreateSprite("px.png", 0)
+bg:Scale(640, 480)
+bg:SetShaders({s.shader})
+
+function scene.update(dt)
+    s:update(dt)
+end
+
+function scene.draw() end
+
+function scene.clear()
+    Layers.clear()
+end
+
+return scene
+```
+
+`px.png` is a white texture, so the scene above renders a solid red screen. Point `FirstRoom` at it to check the rewrite.
+
+| Option | Value | Effect |
+|---|---|---|
+| `hostChannel` | 0-3 | Bind one channel to the host texture |
+| `hostChannels` | array | Bind several channels to the host texture |
+| `hostFlipY` | `false` | Disable the y flip on sampled UV; enabled by default |
+
+The rewrite runs at conversion time and only replaces the sampling expression:
+
+| Original | Rewritten |
+|---|---|
+| `texture(iChannel0, uv)` | `Texel(texture, vec2((uv).x, 1.0 - (uv).y))` |
+
+`texture` is the main texture parameter of the converted `effect`, so `Texel` reads the host image.
+The y flip compensates for `fragCoord` pointing up and `texture_coords` pointing down; set
+`hostFlipY = false` when UVs are already written in LÖVE coordinates. The UV expression is kept in
+full, so offset samples and repeated calls keep their behaviour. When a sampling call has more than
+the UV argument, only the first argument is used.
+
+!!! warning "A host channel does not own a texture slot"
+    Host channels get no noise placeholder, `update(dt)` sends no texture to them, and
+    `setChannel` / `setAudioChannel` ignore them with a warning. Conversion removes the
+    `extern Image iChannelN;` declaration when the original code has no other reference to that
+    channel. `iChannelResolutionN` is derived from the real channel texture; a host channel has
+    none, so that value is never set. Use `iResolution` or `texture_coords` when dimensions are needed.
+
+!!! warning "Rewrite scope"
+    The rewrite covers `texture(iChannelN, uv)` calls in `mainImage` and helper code, but the
+    rewritten `texture` name refers to a local parameter of `effect` and is not visible inside
+    helper functions. Such helpers need the `Image` passed in as an argument or a manual rewrite.
+    Passes in a multi-pass project draw to canvases rather than sprites, so `newProject()` /
+    `addPass()` do not expose the host channel option.
+
 ### Audio channel
 
 `setAudioChannel(id, filepath)` turns audio into a **512×2** texture and feeds it into the shader:
@@ -140,7 +214,7 @@ The object returned by `convert(code)` (called `s` below):
 | `s:printCode(mode, savePath)` | Print/save the converted code, a debugging godsend |
 | `s:generateNoiseTexture(size)` | Manually generate a noise texture |
 
-Fields: `s.shader` (the real Shader), `s.original` (original text), `s.code` (after conversion), `s.externs` (inserted declarations), `s.runtimeFlags` (which uniforms were detected), `s.time` / `s.frame`.
+Fields: `s.shader` (the real Shader), `s.original` (original text), `s.code` (after conversion), `s.externs` (inserted declarations), `s.runtimeFlags` (which uniforms were detected), `s.hostChannels` (set of channels bound to the host texture), `s.time` / `s.frame`.
 
 !!! example "When it won't convert, look at the conversion result first"
     ```lua

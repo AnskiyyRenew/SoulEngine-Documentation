@@ -238,8 +238,13 @@ title: ❕️ 内置资源一览
 | `Resources/Libs/DiscordGameSDK/x64/`、`x86/` | 未被加载 | 旧版 Game SDK 的备选，源码里有注释解释为什么改用上面的 RPC |
 | `Resources/Libs/Secrets/secrets.dll` | `Utils/Secrets.lua` | 密钥库，见 [密钥原生库](./050_secrets.md) |
 
-!!! warning "Android 上的 .so"
-    原生库**不能**塞在 `game.love` 里加载，Android 需要放进 `app/src/main/jniLibs/<abi>/`。细节见 [密钥原生库](./050_secrets.md) 与 [导出](../100_export/index.md)。
+!!! warning "原生库不能留在包里加载"
+    `ffi.load` / `require` 走操作系统加载器，读不到 `game.love` 内部，因此原生库必须落在包外：
+
+    - **Windows**：打包脚本把这些 `.dll` 复制到 exe 同目录，并按原相对路径镜像一份。fused exe 在磁盘上没有源码树，`Resources/Libs/...` 这类路径对它不起作用。
+    - **Android**：放进 `app/src/main/jniLibs/<abi>/`。
+
+    细节见 [密钥原生库](./050_secrets.md) 与 [导出](../100_export/index.md)。
 
 ---
 

@@ -1,5 +1,5 @@
 ---
-title: 导出与发布
+title: ❕️ 导出与发布
 ---
 
 游戏可运行且内容完成后，下一步是将其打包为**可分发、可直接打开的文件**。
@@ -154,6 +154,11 @@ Export/
 需要本机装了 LÖVE（界面里要指向含 `love.exe` 的目录）。
 
 产物是一个**文件夹**，不是单个 exe —— `love.dll` 、`SDL2.dll` 等必须与 exe 位于同一目录，缺少其中任何一个都无法启动。
+
+!!! note "项目自带的 `.dll` 也会一起复制"
+    这类库（`Resources/Libs/https.dll` 、`Resources/Libs/DiscordRPC/discord-rpc-x64.dll` 、`Scripts/Libraries/PerfectPixel/cpp.dll` 等）经 `ffi.load` / `require` 交给操作系统加载器读取，无法从 `.love` 压缩包内部加载；fused exe 在磁盘上也没有源码树可供原路径查找。
+
+    打包脚本把它们**平铺到 exe 同目录**，并按原相对路径**再镜像一份**（兼容仍按 `Resources/Libs/...` 查找的加载器）。同名冲突时保留 LÖVE 运行时自带的版本，x86/x64 两份同名库保留 x64 版本。
 
 发布时有两种送法：
 

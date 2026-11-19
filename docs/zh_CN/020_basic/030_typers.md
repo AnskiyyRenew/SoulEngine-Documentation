@@ -405,3 +405,78 @@ title: ❕️ 打字机
     对齐也不改变尺寸： `SetAlign("center")` 只平移字符，不会让它变宽。
 
 ---
+---
+
+## 遮罩与着色器
+
+四种打字机都支持遮罩与着色器，接口与贴图一致： `SetStencils` 对应 `sprite:SetStencils` ， `SetShaders` 对应 `sprite:SetShaders` 。两者互相独立，可以单独使用，也可以同时设置。
+
+未设置时不存在额外开销，绘制路径与之前完全相同。
+
+### 遮罩
+
+使用 `typer:SetStencils({mask})` 限定绘制范围，内部可放置多个遮罩： `typer:SetStencils({mask1, mask2})` ，效果是各遮罩区域相加后裁剪文字。单独传入一个遮罩表也有效。
+
+- `typer:GetStencils()` 返回当前遮罩列表。
+- `typer:ClearStencils()` 清空列表，文字恢复为不裁剪。
+
+遮罩对象由 `Masks.New` 创建，与贴图共用同一套：矩形、椭圆、贴图形状均可。遮罩的位置与宽高可以逐帧修改，无需重新设置到打字机上。
+
+!!! example "文字只在移动的矩形内显示"
+
+    ```lua
+    local t = Typers.InstText.New("CLIPPED BY A MOVING MASK", {320, 240}, 0)
+    t:SetAlign("center")
+
+    local mask = Masks.New("rect", 320, 240, 150, 34, 0, 0)
+    t:SetStencils({mask})
+
+    function scene.update(dt)
+        mask.x = 320 + math.sin(love.timer.getTime() * 1.6) * 220
+    end
+    ```
+
+!!! note "与贴图遮罩相同的清理方式"
+    绘制时依次执行 `Masks.Draw` 、 `Masks.Use` 、绘制文字、 `Masks.Clear` ，因此掩码不会残留到下一帧或下一个对象。`Masks.Clear` 会清空整块 stencil 缓冲区，同一帧内其他依赖 stencil 的绘制需自行重新写入。
+
+### 着色器
+
+使用 `typer:SetShaders({shader})` 为文字设置着色器，多个着色器按顺序串联，与贴图的链式行为一致。
+
+- `typer:GetShaders()` 返回当前着色器列表。
+- `typer:ClearShaders()` 清空列表。
+- `typer:AddShader(shader)` / `typer:RemoveShader(shader)` 在列表尾部增删单个着色器。
+
+着色器的输入不是单个字形，而是**整段文字合成的一张画布**：绘制时先按文字边界渲染到离屏画布，再依次执行着色器，最后原样贴回。因此在 `Scripts/Shaders/` 下为贴图编写、依赖 `tex_coords` 归一化到 `0 ~ 1` 的着色器（例如 `WaveDistort` 、 `Gradiant` ）可以直接用于文字，效果覆盖整段文字而非逐字重复。
+
+!!! example "给对话文字加波纹"
+
+    ```lua
+    local wave = ImportFile("WaveDistort", "shader")
+    wave:send("amplitude", 0.06)
+    wave:send("frequency", 0.08)
+    wave:send("speed", 2)
+    wave:send("tex_size", {320, 40})
+
+    local t = Typers.EText.New("A WAVE OVER DIALOGUE TEXT", {150, 380}, 0)
+    t:SetShaders({wave})
+    ```
+
+!!! note "画布尺寸随文字变化"
+    画布按当前文字的边界确定，包含描边宽度与 `shake` 强度，因此描边和抖动不会在边缘被切掉。文字继续打出、宽度增长时画布随之增大。相同尺寸区间的画布会被复用，不会每帧新建。
+
+!!! warning "着色器只在绘制时生效，不影响尺寸测量"
+    `GetWidth` / `GetHeight` 返回的是排版尺寸，与是否设置着色器无关。着色器对像素的位移（例如波纹的偏移量）不计入其中，开启后屏幕上的实际占用可能超出返回值。
+
+!!! example "遮罩与着色器同时使用"
+
+    ```lua
+    local gray = ImportFile("ColorFilter", "shader")
+    gray:send("grayscale", 1)
+
+    local t = Typers.InstText.New("GREY, CLIPPED", {320, 240}, 0)
+    t:SetShaders({gray})
+    t:SetStencils({mask})
+    ```
+
+    绘制顺序为先合成着色器画布，再在遮罩内贴回，两者叠加不冲突。

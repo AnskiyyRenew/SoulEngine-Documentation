@@ -1,5 +1,5 @@
 ---
-title: Engine Hotkeys
+title: ❕️ Engine Hotkeys
 ---
 
 The engine has a set of operation and debugging hotkeys. **Most take effect only in the development build (`_RELEASED = false`)** and are automatically disabled after packaging.
@@ -13,6 +13,7 @@ The engine has a set of operation and debugging hotkeys. **Most take effect only
 | `F7` | Toggle Battle collision boxes (`Battle.ToggleHitboxes()`, inside the Battle scene) | Dev build only |
 | `F8` | Toggle the **variable debugger** (DevTool) | Dev build only |
 | `F9` | Toggle the **object debugger** (Debugger) info-text show/hide | Dev build only |
+| `F10` | Toggle the **wave picker** (type `e` `n` `d` to unlock developer mode first) | Dev build only |
 
 !!! note "About F3"
     The engine has **no** `F3`, nor an FPS overlay. To see the frame rate, use the `FPS` field printed by `F6`, or press `F8` to open the variable debugger and read the live value.
@@ -39,13 +40,16 @@ Only meaningful inside the Battle scene, used to visualize perfect-pixel hitboxe
 ### F8 / F9 — The two debuggers
 `F8` opens the [variable debugger](./020_devtool.md), and `F9` controls the [object debugger](./010_debugger.md) info-text show/hide. See their respective pages for the division of labor.
 
+### F10 — Wave picker
+Type `e` `n` `d` in any scene to unlock [developer mode](./015_devmode.md) first; only then does `F10` open the panel. Typing the sequence again locks it.
+
 ---
 
 ## Custom hotkeys
 
 The hotkeys are written in `main.lua`'s `love.keypressed`:
 
-- Global hotkeys (`F2` / `F4` / `F5` / `F6` / `F8`) check `key` directly.
+- Global hotkeys (`F2` / `F4` / `F5` / `F6` / `F8` / `F10`) check `key` directly.
 - `F7` inside Battle is polled every frame by `Battle` via `Keyboard.GetState("f7")`.
 
 To add your own hotkey, copy the corresponding block and change the key name.

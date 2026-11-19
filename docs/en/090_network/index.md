@@ -1,5 +1,5 @@
 ---
-title: Networking
+title: ❕️ Networking
 ---
 
 The networking topic covers the engine's three built-in networking/multiplayer libraries. They're independent of each other; use whichever you need:
@@ -53,6 +53,9 @@ All three libraries are "quiet" by default and won't crash the game just because
 !!! note "Android / Mobile"
     Both `https.dll` and `discord-rpc-*.dll` are **Windows-only** dynamic libraries and can't be loaded even if packed into an Android package.
     These two libraries auto-degrade on non-Windows platforms (`isAvailable()` returns `false`) — **don't** hang critical logic on them.
+
+!!! note "Windows packaging"
+    The packager copies both `.dll` files next to the exe, so no manual step is needed. See [Export → Windows](../100_export/index.md) for the reasoning and the copy rules.
 
 ---
 

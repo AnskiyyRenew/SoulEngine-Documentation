@@ -1,5 +1,5 @@
 ---
-title: Turn Script
+title: ❕️ Turn Script
 ---
 
 Everything that happens during the enemy's turn is written in the **Turn Script** (`Wave`): how bullets come out, when they come out, and when they finish after coming out.
@@ -201,3 +201,7 @@ The wave module may have cache in both locations; `Battle.ClearWaveModule` clear
     - `Battle.waveModule` The full module name that actually loaded successfully last time, e.g. `Game.Waves.bones.wave1`, usable to confirm whether the Game-area override took effect.
 
 The engine auto-clears once at the end of the turn, so during normal play you don't need to worry about it. Only when **you changed the wave file while debugging but it didn't take effect** do you need to handle it manually.
+
+## Jumping to a wave while testing
+
+Development builds ship [developer mode](../070_develop/015_devmode.md): type `e` `n` `d` to unlock, then `F10` opens the wave picker and loads any wave script directly, without playing the earlier turns. The picker lists waves as the directory tree under `Game/Waves/` and `Scripts/Waves/`; the folder layout is the namespace.

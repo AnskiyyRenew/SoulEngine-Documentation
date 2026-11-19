@@ -1,5 +1,5 @@
 ---
-title: Developer Tools
+title: ❕️ Developer Tools
 ---
 
 ---
@@ -13,9 +13,10 @@ The engine ships with some **development-only debugging and assistive tools** th
 | Page | Content |
 |---|---|
 | [Scene Assist Tools](./000_toolscenes.md) | The engine's built-in tool scenes; the bezier easing editor (visually shape easing curves and export code) |
+| [Developer Mode](./015_devmode.md) | Type `e` `n` `d` to unlock, `F10` opens the wave picker: jump straight to any wave script or end the current enemy turn |
 | [Object Debugger](./010_debugger.md) | In-game click / drag sprites, change properties, four-point deformation, export object code |
 | [Variable Debugger](./020_devtool.md) | `F8` variable tree + console, inspect and modify any field in the engine's memory in real time |
-| [Engine Hotkeys](./030_hotkeys.md) | Full table of `F2` ~ `F9` hotkeys: reload, fullscreen, hot-reload, debug info, hitboxes, the two debuggers |
+| [Engine Hotkeys](./030_hotkeys.md) | Full table of `F2` ~ `F10` hotkeys: reload, fullscreen, hot-reload, debug info, hitboxes, the two debuggers, the wave picker |
 | [Resource Preloading](./040_preload.md) | `SE.Preload(...)` / `SE.PreloadAll()` decode Game-area resources into cache ahead of time, avoiding first-reference stutter |
 | [Native Secret Store](./050_secrets.md) | Compile secrets like the GameJolt private key into a `.dll` / `.so` and read them back through FFI, instead of leaving them in plain text |
 | [Bundled Assets](./060_bundled_assets.md) | Which files under the engine's `Resources/` are actually in use: fonts, sounds, music, sprites and native libraries, and where each is used |

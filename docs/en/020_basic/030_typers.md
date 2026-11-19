@@ -403,3 +403,79 @@ Code that holds a typer without knowing which module built it can use the module
     Spaces create no letter, so they are absent from the result, while tags such as `[wait:x]` never appear in the layout at all.
     Effects like `shake` move glyphs at draw time and are not included, so the footprint on screen can be a few pixels larger than the returned value.
     Alignment does not change the size either: `SetAlign("center")` moves the letters without widening them.
+
+---
+
+## Masks and Shaders
+
+All four typers support masks and shaders, with the same interface a sprite uses: `SetStencils` mirrors `sprite:SetStencils`, `SetShaders` mirrors `sprite:SetShaders`. The two are independent and can be used alone or together.
+
+Nothing is allocated while neither is set: the draw path is identical to the one used before.
+
+### Masks
+
+`typer:SetStencils({mask})` limits where the text may draw. A list of masks works the same way (`typer:SetStencils({mask1, mask2})`) and clips the text to the union of the mask areas. A single mask table passed on its own is accepted as well.
+
+- `typer:GetStencils()` returns the current mask list.
+- `typer:ClearStencils()` empties it, and the text draws unclipped again.
+
+Masks come from `Masks.New` and are the same objects sprites use: rectangle, ellipse or image shape. Moving or resizing a mask needs no further call - the typer reads it at draw time.
+
+!!! example "Text visible only inside a moving rectangle"
+
+    ```lua
+    local t = Typers.InstText.New("CLIPPED BY A MOVING MASK", {320, 240}, 0)
+    t:SetAlign("center")
+
+    local mask = Masks.New("rect", 320, 240, 150, 34, 0, 0)
+    t:SetStencils({mask})
+
+    function scene.update(dt)
+        mask.x = 320 + math.sin(love.timer.getTime() * 1.6) * 220
+    end
+    ```
+
+!!! note "Same cleanup as a masked sprite"
+    Drawing runs `Masks.Draw`, then `Masks.Use`, then the letters, then `Masks.Clear`, so a mask never leaks into the next frame or the next object. `Masks.Clear` zeroes the whole stencil buffer, so any other drawing in the same frame that relies on a stencil has to write its own masks again.
+
+### Shaders
+
+`typer:SetShaders({shader})` runs the text through a shader. Several shaders chain in list order, matching the sprite behaviour.
+
+- `typer:GetShaders()` returns the current shader list.
+- `typer:ClearShaders()` empties it.
+- `typer:AddShader(shader)` / `typer:RemoveShader(shader)` add or drop a single shader at the end of the list.
+
+The shader input is not an individual glyph but **one canvas holding the whole text block**: the text is first rendered into an offscreen canvas sized to its bounds, the chain runs over that canvas, and the result is blitted back unchanged. Shaders written for sprites under `Scripts/Shaders/` that rely on `tex_coords` normalised to `0 ~ 1` (for example `WaveDistort` or `Gradiant`) therefore work on text directly, and the effect covers the whole block instead of repeating per glyph.
+
+!!! example "A wave over dialogue text"
+
+    ```lua
+    local wave = ImportFile("WaveDistort", "shader")
+    wave:send("amplitude", 0.06)
+    wave:send("frequency", 0.08)
+    wave:send("speed", 2)
+    wave:send("tex_size", {320, 40})
+
+    local t = Typers.EText.New("A WAVE OVER DIALOGUE TEXT", {150, 380}, 0)
+    t:SetShaders({wave})
+    ```
+
+!!! note "The canvas follows the text"
+    The canvas is sized from the current bounds and includes the outline width and the `shake` amplitude, so neither is cut off at the edges. It grows while more letters are typed. Canvases of the same size range are reused rather than created per frame.
+
+!!! warning "Shaders act at draw time and do not affect measurement"
+    `GetWidth` and `GetHeight` report the laid-out size regardless of any shader. Pixel displacement produced by a shader (a wave offset, for instance) is not included, so the on-screen footprint can exceed the returned value once a shader is set.
+
+!!! example "Mask and shader together"
+
+    ```lua
+    local gray = ImportFile("ColorFilter", "shader")
+    gray:send("grayscale", 1)
+
+    local t = Typers.InstText.New("GREY, CLIPPED", {320, 240}, 0)
+    t:SetShaders({gray})
+    t:SetStencils({mask})
+    ```
+
+    The shader canvas is composed first and blitted back inside the mask, so the two combine without conflict.

@@ -1,5 +1,5 @@
 ---
-title: Timer
+title: ❕️ Timer
 ---
 
 Execute some code after a number of frames or seconds.
@@ -32,13 +32,16 @@ The frame-based versions add `+1` to an internal counter each `Update`, so an in
 ## Execute at Intervals: `runFrame` / `runSecond`
 
 ```lua
-timers.runFrame(func, interval, count)
-timers.runSecond(func, interval, count)
+timers.runFrame(func, interval, count, immediate)
+timers.runSecond(func, interval, count, immediate)
 ```
 
 - `func` the callback executed when due.
 - `interval` the interval. `runFrame` is in **frames** (default `60`); `runSecond` is in **seconds** (default `1.0`).
 - `count` how many times to execute in total (default `1`).
+- `immediate` when `true`, `func` is called once at the moment the timer is created. That call counts toward `count`, and the regular `interval` timing starts afterwards (default `false`, preserving the original behavior).
+
+Because the immediate call counts toward `count`, `runFrame(func, 60, 3, true)` executes once on creation, then once at frame 60 and once at frame 120 — 3 times in total. To keep the immediate call outside the total, add 1 to `count` (the example above with `4` also fires at frame 180).
 
 !!! example "Example"
 
@@ -52,6 +55,11 @@ timers.runSecond(func, interval, count)
     timers.runSecond(function()
         print("half second")
     end, 0.5, 3)
+
+    -- Runs immediately, then once every 0.5 seconds, 3 times total
+    timers.runSecond(function()
+        print("now, then every half second")
+    end, 0.5, 3, true)
     ```
 
 ---
